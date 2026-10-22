@@ -89,6 +89,7 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
             itemType == "NATIVE_AD" || apiPost.post_type == "NATIVE_AD" -> PostType.NATIVE_AD
             itemType == "AD_UNIT" || apiPost.post_type == "AD_UNIT" -> PostType.AD_UNIT
             itemType == "short" || apiPost.post_type?.lowercase() == "short" -> PostType.SHORT
+            itemType == "job" || apiPost.post_type?.lowercase() == "job" -> PostType.JOB
             apiPost.post_type?.lowercase() == "repost" -> PostType.REPOST
             apiPost.post_type?.lowercase() == "standard" -> PostType.POST
             else -> PostType.POST

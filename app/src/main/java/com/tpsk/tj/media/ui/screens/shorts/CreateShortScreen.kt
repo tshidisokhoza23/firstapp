@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.media.ui.screens.shorts
 
 import android.net.Uri
@@ -54,6 +56,8 @@ fun CreateShortScreen(
         // Intercept back gesture so user cannot accidentally abort mid-upload
     }
 
+    var pendingPreviewUri by remember { mutableStateOf<Uri?>(null) }
+
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
@@ -66,7 +70,7 @@ fun CreateShortScreen(
             if (size > 250 * 1024 * 1024) {
                 Toast.makeText(context, "Video exceeds 250MB size limit", Toast.LENGTH_LONG).show()
             } else {
-                selectedVideoUri = uri
+                pendingPreviewUri = uri
             }
         }
     }
@@ -307,6 +311,19 @@ fun CreateShortScreen(
                 )
             }
         }
+    }
+
+    pendingPreviewUri?.let { uri ->
+        com.tpsk.tj.chat.ui.screens.MediaPreviewOverlay(
+            uris = listOf(uri),
+            type = "video",
+            onDismiss = { pendingPreviewUri = null },
+            onSend = { cap, processedUris ->
+                if (cap.isNotBlank()) caption = cap
+                selectedVideoUri = processedUris.firstOrNull() ?: uri
+                pendingPreviewUri = null
+            }
+        )
     }
 }
 

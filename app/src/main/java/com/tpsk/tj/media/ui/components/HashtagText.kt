@@ -16,6 +16,17 @@ import com.tpsk.tj.ui.navigation.Screen
 
 private val hashtagRegex = Regex("""#[A-Za-z0-9_]{2,40}""")
 
+fun isContestHashtag(tag: String): Boolean {
+    val clean = tag.removePrefix("#").lowercase().trim()
+    val knownContestTags = setOf(
+        "missthembisa", "thembisatalent", "thembisaqueen", "misssoweto", "gautengpageant"
+    )
+    return knownContestTags.contains(clean) ||
+           clean.startsWith("contest") ||
+           clean.contains("pageant") ||
+           clean.contains("contestant")
+}
+
 @Composable
 fun HashtagText(
     text: String,
@@ -49,10 +60,12 @@ fun HashtagText(
         style = TextStyle(color = color, fontSize = fontSize, lineHeight = lineHeight),
         onClick = { offset ->
             annotated.getStringAnnotations("hashtag", offset, offset).firstOrNull()?.item?.let { tag ->
-                if (onHashtagClick != null) {
+                if (isContestHashtag(tag)) {
+                    GlobalNavigation.navigateTo(Screen.ContestFeed.createRoute("#$tag"))
+                } else if (onHashtagClick != null) {
                     onHashtagClick(tag)
                 } else {
-                    GlobalNavigation.navigateTo(Screen.ContestFeed.createRoute("#$tag"))
+                    GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "social", subTab = "#$tag"))
                 }
             }
         }

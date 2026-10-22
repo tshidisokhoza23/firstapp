@@ -338,6 +338,10 @@ fun MediaScreen(
                             onMediaClick = onMediaClick,
                             onFollowUser = onFollowUser,
                             onPostViewed = onPostViewed,
+                            onHashtagClick = { tag ->
+                                isSearchActive = true
+                                searchQuery = "#${tag.removePrefix("#")}"
+                            },
                             categories = categories,
                             selectedCategoryId = selectedCategoryId,
                             onCategorySelected = onCategorySelected,
@@ -588,6 +592,7 @@ fun MainFeedSection(
     onShareClick: (Post) -> Unit = {},
     onFollowUser: (String, Boolean) -> Unit = { _, _ -> },
     onPostViewed: (String) -> Unit = {},
+    onHashtagClick: (String) -> Unit = {},
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
     categories: List<Category> = emptyList(),
@@ -771,7 +776,8 @@ fun MainFeedSection(
                             onVotePoll = { pid, oid -> onVotePoll(pid, oid) },
                             onMediaClick = onMediaClick,
                             onShareClick = onShareClick,
-                            onFollowClick = onFollowUser
+                            onFollowClick = onFollowUser,
+                            onHashtagClick = onHashtagClick
                         )
                     }
                 }

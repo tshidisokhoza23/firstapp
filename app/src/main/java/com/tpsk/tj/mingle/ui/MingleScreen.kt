@@ -83,6 +83,7 @@ fun MingleScreen(
     val hourlyAdCount by advertsViewModel.hourlyAdCount.collectAsState()
     val rewardCooldownSeconds by advertsViewModel.cooldownRemainingSeconds.collectAsState()
     var showPointsGateDialog by remember { mutableStateOf(false) }
+    var showCourtPassPaywallSheet by remember { mutableStateOf(false) }
     var showProfileRequiredDialog by remember { mutableStateOf(false) }
 
     var showRadiusSheet by remember { mutableStateOf(false) }
@@ -95,6 +96,19 @@ fun MingleScreen(
 
     val hasUploadedProfile = remember(myPhotos) {
         myPhotos.any { it.isNotBlank() }
+    }
+
+    val isProfileComplete = remember(myPhotos, uiState.myName, uiState.myAge, uiState.myBio) {
+        myPhotos.any { it.isNotBlank() } &&
+        uiState.myName.isNotBlank() &&
+        uiState.myAge in 18..120 &&
+        uiState.myBio.isNotBlank()
+    }
+
+    LaunchedEffect(isProfileComplete, uiState.isLoading) {
+        if (!uiState.isLoading && !isProfileComplete) {
+            showUploadPhotosSheet = true
+        }
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -127,7 +141,7 @@ fun MingleScreen(
         }
     }
 
-    val profilesBetweenAds = 8
+    val profilesBetweenAds = 5
     val totalPages = remember(mingleProfiles) {
         if (mingleProfiles.isEmpty()) 0
         else mingleProfiles.size + (mingleProfiles.size / profilesBetweenAds)
@@ -633,6 +647,16 @@ fun MingleScreen(
         }
     }
 
+    if (showCourtPassPaywallSheet) {
+        CourtPassPaywallSheet(
+            onDismissRequest = { showCourtPassPaywallSheet = false },
+            onPurchaseSuccess = { tier ->
+                Toast.makeText(context, "Court ${tier.title} unlocked! 🎉", Toast.LENGTH_SHORT).show()
+                showCourtPassPaywallSheet = false
+            }
+        )
+    }
+
     // Radius Filter Sheet (Section 5.1 Discovery Radius Sheet)
     if (showRadiusSheet) {
         val displayValue = selectedRadiusKm.toInt()
@@ -716,6 +740,8 @@ fun MingleScreen(
             mutableStateOf(uiState.myName.ifBlank { currentUser?.displayName.orEmpty() })
         }
         var nameError by remember { mutableStateOf(false) }
+        var ageError by remember { mutableStateOf(false) }
+        var bioError by remember { mutableStateOf(false) }
         var editAge by remember(uiState.myAge) {
             mutableStateOf(if (uiState.myAge in 18..120) uiState.myAge.toString() else "")
         }
@@ -729,20 +755,44 @@ fun MingleScreen(
             mutableStateOf(uiState.myLookingFor.ifBlank { "Everyone" })
         }
         var editTargetAgeRange by remember(uiState.myTargetAgeRange) {
-            mutableStateOf(uiState.myTargetAgeRange.ifBlank { "18 - 35" })
+            mutableStateOf(
+                when {
+                    uiState.myTargetAgeRange.contains("120") || uiState.myTargetAgeRange.startsWith("18+") -> "18+ (All ages 18+)"
+                    uiState.myTargetAgeRange.isNotBlank() -> uiState.myTargetAgeRange
+                    else -> "18 - 35"
+                }
+            )
         }
 
-        ModalBottomSheet(
-            onDismissRequest = { showUploadPhotosSheet = false },
-            containerColor = MaterialTheme.colorScheme.surface
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = bottomPadding)
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable {
+                    if (isProfileComplete) {
+                        showUploadPhotosSheet = false
+                    } else {
+                        Toast.makeText(context, "All profile fields & at least 1 photo are required to use Mingle", Toast.LENGTH_SHORT).show()
+                    }
+                },
+            contentAlignment = Alignment.BottomCenter
         ) {
-            Column(
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxHeight(0.92f)
+                    .clickable(enabled = false) {},
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 8.dp
             ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
@@ -889,9 +939,20 @@ fun MingleScreen(
                 // Age field
                 OutlinedTextField(
                     value = editAge,
-                    onValueChange = { editAge = it.filter { char -> char.isDigit() }.take(3) },
-                    label = { Text("Age") },
+                    onValueChange = {
+                        editAge = it.filter { char -> char.isDigit() }.take(3)
+                        if (it.toIntOrNull() in 18..120) ageError = false
+                    },
+                    label = { Text("Age *") },
                     leadingIcon = { Icon(Icons.Default.Cake, contentDescription = null) },
+                    supportingText = {
+                        if (ageError) {
+                            Text("Age is required (must be 18 to 120)", color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Text("Your age (must be 18+)")
+                        }
+                    },
+                    isError = ageError,
                     singleLine = true,
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
@@ -905,9 +966,20 @@ fun MingleScreen(
                 // Bio field
                 OutlinedTextField(
                     value = editBio,
-                    onValueChange = { editBio = it },
-                    label = { Text("About Me / Bio") },
+                    onValueChange = {
+                        editBio = it
+                        if (it.isNotBlank()) bioError = false
+                    },
+                    label = { Text("About Me / Bio *") },
                     leadingIcon = { Icon(Icons.Default.Notes, contentDescription = null) },
+                    supportingText = {
+                        if (bioError) {
+                            Text("Bio / About me is required", color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Text("Write a short bio about yourself")
+                        }
+                    },
+                    isError = bioError,
                     minLines = 2,
                     maxLines = 4,
                     modifier = Modifier.fillMaxWidth(),
@@ -990,10 +1062,13 @@ fun MingleScreen(
                                 Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Range")
                             }
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { ageRangeExpanded = true },
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { ageRangeExpanded = !ageRangeExpanded }
                     )
                     DropdownMenu(
                         expanded = ageRangeExpanded,
@@ -1017,16 +1092,27 @@ fun MingleScreen(
                 // Save & Update Button
                 Button(
                     onClick = {
-                        if (editName.isBlank()) {
-                            nameError = true
-                            Toast.makeText(context, "Please enter your preferred Mingle display name", Toast.LENGTH_SHORT).show()
+                        val trimmedName = editName.trim()
+                        val parsedAge = editAge.toIntOrNull() ?: 0
+                        val trimmedBio = editBio.trim()
+                        val hasPhoto = uiState.myPhotos.any { !it.url.isNullOrBlank() }
+
+                        nameError = trimmedName.isBlank()
+                        ageError = parsedAge !in 18..120
+                        bioError = trimmedBio.isBlank()
+
+                        if (nameError || ageError || bioError || !hasPhoto) {
+                            val errorList = mutableListOf<String>()
+                            if (nameError) errorList.add("Display Name")
+                            if (ageError) errorList.add("Your Age (must be 18-120)")
+                            if (bioError) errorList.add("About Me / Bio")
+                            if (!hasPhoto) errorList.add("At least 1 Photo")
+
+                            val msg = "Please complete: " + errorList.joinToString(", ")
+                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                             return@Button
                         }
-                        val parsedAge = editAge.toIntOrNull()
-                        if (parsedAge == null || parsedAge !in 18..120) {
-                            Toast.makeText(context, "Enter an age from 18 to 120", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
+
                         val normalizedGender = when (editGender.trim().lowercase()) {
                             "male", "man" -> "male"
                             "female", "woman" -> "female"
@@ -1046,16 +1132,15 @@ fun MingleScreen(
                         }
 
                         mingleViewModel.updateProfile(
-                            name = editName.trim(),
-                            bio = editBio,
+                            name = trimmedName,
+                            bio = trimmedBio,
                             age = parsedAge,
                             gender = normalizedGender,
                             lookingFor = normalizedLookingFor,
                             targetAgeRange = normalizedAgeRange,
                             onComplete = {
-                                // REQUIREMENT: Mingle bio remains private to Mingle and does not overwrite main profile bio
                                 userViewModel.updateProfile(
-                                    displayName = editName.trim(),
+                                    displayName = trimmedName,
                                     bio = null,
                                     location = null,
                                     avatarUrl = null
@@ -1077,6 +1162,7 @@ fun MingleScreen(
             }
         }
     }
+}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

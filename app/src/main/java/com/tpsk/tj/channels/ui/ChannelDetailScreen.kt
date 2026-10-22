@@ -1,4 +1,8 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.channels.ui
+
+import android.net.Uri
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -173,16 +177,20 @@ fun ChannelDetailScreen(
         (mappedMessages + posts).distinctBy { it.id }
     }
 
+    var pendingPreviewUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var pendingPreviewType by remember { mutableStateOf("image") }
+
     val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) {
-            val urls = uris.map { it.toString() }
-            onSendPost("", urls)
+            pendingPreviewType = "image"
+            pendingPreviewUris = uris
             showAttachments = false
         }
     }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
-            onSendPost("", listOf(it.toString()))
+            pendingPreviewType = "image"
+            pendingPreviewUris = listOf(it)
             showAttachments = false
         }
     }
@@ -200,7 +208,8 @@ fun ChannelDetailScreen(
     }
     val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
-            onSendPost("Video update", listOf(it.toString()))
+            pendingPreviewType = "video"
+            pendingPreviewUris = listOf(it)
             showAttachments = false
         }
     }
@@ -209,6 +218,18 @@ fun ChannelDetailScreen(
     val isAdmin = channel.isAdmin || isCreator
     val canPost = isCreator || (channel.isAdmin && channel.adminsCanPost)
     val isFollower = channel.isSubscribed || isAdmin
+
+    if (pendingPreviewUris.isNotEmpty()) {
+        com.tpsk.tj.chat.ui.screens.MediaPreviewOverlay(
+            uris = pendingPreviewUris,
+            type = pendingPreviewType,
+            onDismiss = { pendingPreviewUris = emptyList() },
+            onSend = { caption, processedUris ->
+                onSendPost(caption, processedUris.map { it.toString() })
+                pendingPreviewUris = emptyList()
+            }
+        )
+    }
 
     Scaffold(
         topBar = {

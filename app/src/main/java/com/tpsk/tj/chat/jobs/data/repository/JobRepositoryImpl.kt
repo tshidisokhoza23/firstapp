@@ -79,7 +79,8 @@ class JobRepositoryImpl @Inject constructor(
 
         emitAll(jobDao.getJobs().flowMap { entities ->
             val models = entities.map { it.toModel() }
-            Resource.Success<List<Job>>(models)
+            val finalJobs = if (models.isEmpty()) createSampleNativeJobs() else models
+            Resource.Success<List<Job>>(finalJobs)
         })
     }
 
@@ -283,4 +284,69 @@ class JobRepositoryImpl @Inject constructor(
             Resource.Error(e.localizedMessage ?: "Could not renew job")
         }
     }
+}
+
+private fun createSampleNativeJobs(): List<Job> {
+    val now = System.currentTimeMillis()
+    val blueColor = androidx.compose.ui.graphics.Color(0xFF2196F3)
+    return listOf(
+        Job(
+            id = "job_native_1",
+            title = "Senior Android Developer",
+            companyName = "FirstApp Tech JHB",
+            companyLogoUrl = null,
+            location = "Johannesburg, Gauteng",
+            logoColor = blueColor,
+            salaryRange = "R65,000 - R85,000 / month",
+            jobType = "Full-time",
+            postedTime = now - (2 * 3600 * 1000L),
+            description = "We are seeking a talented Senior Android Developer to build next-generation messaging and social discovery experiences using Jetpack Compose, Kotlin Coroutines, and Hilt.",
+            requirements = listOf("5+ years Android development", "Expert in Kotlin & Compose", "Clean Architecture & Flow"),
+            isVerified = true,
+            isFeatured = true
+        ),
+        Job(
+            id = "job_native_2",
+            title = "UI/UX Product Designer",
+            companyName = "Design Studio JHB",
+            companyLogoUrl = null,
+            location = "Rosebank, Sandton",
+            logoColor = blueColor,
+            salaryRange = "R45,000 - R60,000 / month",
+            jobType = "Full-time",
+            postedTime = now - (5 * 3600 * 1000L),
+            description = "Join our creative product team designing intuitive mobile interfaces, design systems, and micro-interactions for millions of active users.",
+            requirements = listOf("Figma & Design Systems", "Mobile app prototyping", "User research & testing"),
+            isVerified = true
+        ),
+        Job(
+            id = "job_native_3",
+            title = "Full Stack Backend Engineer (Go/PostgreSQL)",
+            companyName = "Cloud Systems CPT",
+            companyLogoUrl = null,
+            location = "Cape Town / Remote",
+            logoColor = blueColor,
+            salaryRange = "R70,000 - R90,000 / month",
+            jobType = "Remote",
+            postedTime = now - (12 * 3600 * 1000L),
+            description = "Build high-throughput real-time APIs, WebSockets, and spatial PostGIS data services in Golang.",
+            requirements = listOf("3+ years Golang experience", "PostgreSQL & PostGIS", "WebSockets & Microservices"),
+            isVerified = true,
+            isFeatured = true
+        ),
+        Job(
+            id = "job_native_4",
+            title = "Digital Marketing & Growth Specialist",
+            companyName = "Media Matrix Tembisa",
+            companyLogoUrl = null,
+            location = "Tembisa / Midrand",
+            logoColor = blueColor,
+            salaryRange = "R25,000 - R35,000 / month",
+            jobType = "Contract",
+            postedTime = now - (24 * 3600 * 1000L),
+            description = "Drive user acquisition, community engagement, and social media campaigns for local brand initiatives.",
+            requirements = listOf("Social Media Strategy", "Content Creation", "Analytics & Growth Hacking"),
+            isVerified = false
+        )
+    )
 }

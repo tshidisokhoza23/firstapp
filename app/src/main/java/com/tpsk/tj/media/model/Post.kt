@@ -10,7 +10,8 @@ enum class PostType {
     INTERNAL_AD,
     EXTERNAL_AD_PLACEHOLDER,
     NATIVE_AD,
-    AD_UNIT
+    AD_UNIT,
+    JOB
 }
 
 data class Post(

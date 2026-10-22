@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.media.ui.components
 
 import android.net.Uri
@@ -51,11 +53,14 @@ fun PostComposerDialog(
     var pollOptions by remember { mutableStateOf<List<String>>(listOf("", "")) }
     val context = LocalContext.current
 
+    var pendingPreviewUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var pendingPreviewType by remember { mutableStateOf("image") }
+
     val mediaLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
         if (uris.isNotEmpty()) {
-            val current = selectedMediaUris.toMutableList()
-            for (uri in uris) { if (!current.contains(uri)) current.add(uri) }
-            selectedMediaUris = current
+            val firstMime = context.contentResolver.getType(uris.first())
+            pendingPreviewType = if (firstMime?.startsWith("video") == true) "video" else "image"
+            pendingPreviewUris = uris
         }
     }
 
@@ -270,6 +275,25 @@ fun PostComposerDialog(
                     }
                 }
             }
+        }
+
+        if (pendingPreviewUris.isNotEmpty()) {
+            com.tpsk.tj.chat.ui.screens.MediaPreviewOverlay(
+                uris = pendingPreviewUris,
+                type = pendingPreviewType,
+                onDismiss = { pendingPreviewUris = emptyList() },
+                onSend = { caption, processedUris ->
+                    if (caption.isNotBlank() && content.isBlank()) {
+                        content = caption
+                    }
+                    val current = selectedMediaUris.toMutableList()
+                    for (uri in processedUris) {
+                        if (!current.contains(uri)) current.add(uri)
+                    }
+                    selectedMediaUris = current
+                    pendingPreviewUris = emptyList()
+                }
+            )
         }
     }
 }

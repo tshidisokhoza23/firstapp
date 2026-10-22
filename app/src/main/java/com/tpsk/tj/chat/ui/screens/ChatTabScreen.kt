@@ -95,7 +95,7 @@ fun ChatsListScreen(
                 when(initialTab.lowercase()) {
                     "chats" -> 0
                     "channels" -> 1
-                    "jobs" -> 2
+                    "nearby", "jobs" -> 2
                     "rewards" -> 3
                     else -> 0
                 }
@@ -110,7 +110,7 @@ fun ChatsListScreen(
             val idx = when(initialTab.lowercase()) {
                 "chats" -> 0
                 "channels" -> 1
-                "jobs" -> 2
+                "nearby", "jobs" -> 2
                 "rewards" -> 3
                 else -> 0
             }
@@ -187,7 +187,7 @@ fun ChatsListScreen(
         }
     }
 
-    val tabs = listOf("Chats", "Channels", "Jobs", "Rewards")
+    val tabs = listOf("Chats", "Channels", "Nearby", "Rewards")
 
     Scaffold(
         topBar = {
@@ -344,31 +344,17 @@ fun ChatsListScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Create Channel")
                     }
-                    2 -> FloatingActionButton(
-                        onClick = { navController.navigate(Screen.PostJob.route) },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Icon(Icons.Default.Work, contentDescription = "Post Job")
-                    }
                 }
             }
         },
         bottomBar = {
-            if (selectedTabItem != 0) {
-                val adUnitId = when (selectedTabItem) {
-                    1 -> AdUnitConfig.BANNER_CHANNELS_ID
-                    2 -> AdUnitConfig.BANNER_JOBS_ID
-                    3 -> AdUnitConfig.BANNER_REWARDS_ID
-                    else -> AdUnitConfig.BANNER_MAIN_ID
-                }
+            if (selectedTabItem == 3) {
                 Column {
                     BannerAdView(
-                        adUnitId = adUnitId,
+                        adUnitId = AdUnitConfig.BANNER_REWARDS_ID,
                         modifier = Modifier.navigationBarsPadding()
                     )
-                    Spacer(Modifier.height(bottomPadding)) // FIX: Pushes FAB above the outer bottom navigation
+                    Spacer(Modifier.height(bottomPadding))
                 }
             }
         },
@@ -696,46 +682,10 @@ fun ChatsListScreen(
                             }
                         }
                         2 -> {
-                            val searchResults by searchViewModel.searchResults.collectAsState()
-                            val autoplayEnabled by mainViewModel.autoplayVideos.collectAsState()
-                            val autoplayGifsEnabled by mainViewModel.autoplayGifs.collectAsState()
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Box(modifier = Modifier.weight(1f)) {
-                                    if (isSearchActive && searchQuery.length > 0) {
-                                        SearchResultsView(
-                                            results = searchResults,
-                                            type = SearchType.JOBS,
-                                            autoplayEnabled = autoplayEnabled,
-                                            autoplayGifsEnabled = autoplayGifsEnabled,
-                                            currentUserId = currentUser?.id,
-                                            onChatClick = {},
-                                            onMessageClick = {},
-                                            onPostClick = { GlobalNavigation.navigateTo(Screen.PostDetail.createRoute(it.id)) },
-                                            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
-                                            onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
-                                        )
-                                    } else {
-                                        val jobChats = sanitizedChats.filter { it.type == ConversationType.JOB_CHAT }
-                                        if (jobChats.isEmpty()) {
-                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                                Text("No job chats yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            }
-                                        } else {
-                                            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                                items(jobChats, key = { it.id }) { chat ->
-                                                    ChatItem(
-                                                        chat = chat,
-                                                        modifier = Modifier.clickable {
-                                                            navController.navigate(Screen.Chat.createRoute(chat.id, type = "job_chat"))
-                                                        }
-                                                    )
-                                                    HorizontalDivider(modifier = Modifier.padding(start = 72.dp))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            com.tpsk.tj.chat.nearby.ui.NearbyTabScreen(
+                                navController = navController,
+                                bottomPadding = bottomPadding
+                            )
                         }
                         3 -> {
                             RewardsScreen(
@@ -821,6 +771,28 @@ fun ChatList(
     val density = LocalDensity.current
     
     val uiState by chatViewModel.uiState.collectAsState()
+    val contactsState by chatViewModel.contacts.collectAsState()
+
+    val loadedContacts = remember(contactsState) {
+        (contactsState.data ?: emptyList()).filter { it.isRegistered || it.displayName.isNotBlank() }
+    }
+
+    val defaultRegisteredContacts = remember {
+        listOf(
+            Contact(id = "c_alice", displayName = "Alice Smith", username = "alice", isRegistered = true),
+            Contact(id = "c_bob", displayName = "Bob Jones", username = "bob", isRegistered = true),
+            Contact(id = "c_charlie", displayName = "Charlie Davis", username = "charlie", isRegistered = true),
+            Contact(id = "c_diana", displayName = "Diana Prince", username = "diana", isRegistered = true),
+            Contact(id = "c_ethan", displayName = "Ethan Hunt", username = "ethan", isRegistered = true)
+        )
+    }
+
+    val registeredContacts = remember(loadedContacts) {
+        val registered = loadedContacts.filter { it.isRegistered }
+        if (registered.isNotEmpty()) registered else defaultRegisteredContacts
+    }
+
+    var isContactsExpanded by remember { mutableStateOf(true) }
 
     val storyMap = remember(stories) {
         val map = mutableMapOf<String, UserStory>()
@@ -950,6 +922,44 @@ fun ChatList(
                 allStoriesViewed = allStoriesViewed,
                 onAvatarClick = { onAvatarClick(chat.id) }
             )
+        }
+
+        // Collapsible Caret Header for Registered Contacts
+        item(key = "contacts_caret_header") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isContactsExpanded = !isContactsExpanded }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = if (isContactsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Toggle Registered Contacts",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        if (isContactsExpanded) {
+            items(
+                items = registeredContacts,
+                key = { "registered_contact_" + it.id }
+            ) { contact ->
+                RegisteredContactRow(
+                    contact = contact,
+                    onClick = {
+                        navController.navigate(
+                            Screen.Chat.createRoute(
+                                chatId = contact.id,
+                                type = "direct",
+                                displayName = contact.displayName
+                            )
+                        )
+                    }
+                )
+            }
         }
     }
     }
@@ -1240,6 +1250,70 @@ fun MessageSearchItem(message: Message) {
                 overflow = TextOverflow.Ellipsis
             )
         }
+    }
+}
+
+@Composable
+fun RegisteredContactRow(
+    contact: Contact,
+    onClick: () -> Unit
+) {
+    val avatarColors = remember(contact.id) {
+        listOf(
+            Color(0xFF26A69A), // Teal
+            Color(0xFF2980B9), // Blue
+            Color(0xFFE67E22), // Orange
+            Color(0xFFE91E63), // Pink
+            Color(0xFF9B59B6)  // Purple
+        )
+    }
+    val colorIndex = remember(contact.id) {
+        kotlin.math.abs(contact.id.hashCode()) % avatarColors.size
+    }
+    val bg = avatarColors[colorIndex]
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!contact.avatarUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = contact.avatarUrl,
+                contentDescription = contact.displayName,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(bg),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = contact.displayName.take(1).uppercase(),
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Text(
+            text = contact.displayName,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 

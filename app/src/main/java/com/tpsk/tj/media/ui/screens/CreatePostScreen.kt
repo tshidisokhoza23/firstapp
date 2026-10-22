@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.media.ui.screens
 
 import android.net.Uri
@@ -119,17 +121,16 @@ fun CreatePostScreen(
     val charLimit = 280
     val canPost = (postText.isNotBlank() || selectedImageUris.isNotEmpty() || showPoll) && postText.length <= charLimit
 
+    var pendingPreviewUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var pendingPreviewType by remember { mutableStateOf("image") }
+
     val pickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 4)
     ) { uris ->
         if (uris.isNotEmpty()) {
-            val current = selectedImageUris.toMutableList()
-            for (uri in uris) {
-                if (!current.contains(uri) && current.size < 4) {
-                    current.add(uri)
-                }
-            }
-            selectedImageUris = current
+            val firstMime = context.contentResolver.getType(uris.first())
+            pendingPreviewType = if (firstMime?.startsWith("video") == true) "video" else "image"
+            pendingPreviewUris = uris
         }
     }
 
@@ -853,6 +854,27 @@ fun CreatePostScreen(
                 TextButton(onClick = { showContestDialog = false }) {
                     Text("Cancel")
                 }
+            }
+        )
+    }
+
+    if (pendingPreviewUris.isNotEmpty()) {
+        com.tpsk.tj.chat.ui.screens.MediaPreviewOverlay(
+            uris = pendingPreviewUris,
+            type = pendingPreviewType,
+            onDismiss = { pendingPreviewUris = emptyList() },
+            onSend = { caption, processedUris ->
+                if (caption.isNotBlank() && postText.isBlank()) {
+                    postText = caption
+                }
+                val current = selectedImageUris.toMutableList()
+                for (uri in processedUris) {
+                    if (!current.contains(uri) && current.size < 4) {
+                        current.add(uri)
+                    }
+                }
+                selectedImageUris = current
+                pendingPreviewUris = emptyList()
             }
         )
     }

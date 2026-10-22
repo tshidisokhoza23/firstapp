@@ -128,4 +128,21 @@ sealed class Screen(val route: String) {
     }
     object CreateContest : Screen("create_contest")
     object TrendingFeed : Screen("trending_feed")
+    object News : Screen("news")
+    object NewsWebView : Screen("news_webview?url={url}&title={title}&source={source}") {
+        fun createRoute(url: String, title: String = "", source: String = "") =
+            "news_webview?url=${android.net.Uri.encode(url)}&title=${android.net.Uri.encode(title)}&source=${android.net.Uri.encode(source)}"
+    }
+    object Events : Screen("events")
+    object DiscussionThread : Screen("discussion_thread?postId={postId}&postTitle={postTitle}&postSubtitle={postSubtitle}&authorName={authorName}&authorDistance={authorDistance}&authorTime={authorTime}&postContent={postContent}") {
+        fun createRoute(
+            postId: String,
+            postTitle: String = "",
+            postSubtitle: String = "",
+            authorName: String = "",
+            authorDistance: String = "",
+            authorTime: String = "",
+            postContent: String = ""
+        ) = "discussion_thread?postId=${android.net.Uri.encode(postId)}&postTitle=${android.net.Uri.encode(postTitle)}&postSubtitle=${android.net.Uri.encode(postSubtitle)}&authorName=${android.net.Uri.encode(authorName)}&authorDistance=${android.net.Uri.encode(authorDistance)}&authorTime=${android.net.Uri.encode(authorTime)}&postContent=${android.net.Uri.encode(postContent)}"
+    }
 }

@@ -112,8 +112,15 @@ object NetworkModule {
                 val currentBaseUrl = envManager.currentUrl
 
                 return@Authenticator try {
+                    val refreshOkHttpClient = okhttp3.OkHttpClient.Builder()
+                        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .readTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .writeTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+                        .build()
+
                     val authApi = Retrofit.Builder()
                         .baseUrl(currentBaseUrl)
+                        .client(refreshOkHttpClient)
                         .addConverterFactory(GsonConverterFactory.create())
                         .build()
                         .create(AuthApi::class.java)

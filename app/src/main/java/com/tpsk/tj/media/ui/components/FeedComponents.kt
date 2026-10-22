@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Verified
+import com.tpsk.tj.common.ui.theme.TwitterBlue
 import androidx.compose.foundation.shape.CircleShape
 import coil.compose.AsyncImage
 import com.tpsk.tj.media.model.Post
@@ -315,54 +317,82 @@ fun QuotedPostCard(
     post: Post,
     onProfileClick: (String) -> Unit,
     onMediaClick: (String, String, Long) -> Unit,
-    onPostClick: (Post) -> Unit = {}
+    onPostClick: (Post) -> Unit = {},
+    onHashtagClick: (String) -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable { onPostClick(post) }
-            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
-        color = MaterialTheme.colorScheme.surface
+            .border(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), RoundedCornerShape(12.dp)),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage(
-                    model = com.tpsk.tj.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
-                    contentDescription = null,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                val avatarUrl = remember(post.authorAvatarUrl) {
+                    com.tpsk.tj.common.util.MediaUtils.formatUrl(post.authorAvatarUrl)
+                }
+                val avatarPainter = remember(post.authorAvatarColor) {
+                    androidx.compose.ui.graphics.painter.ColorPainter(post.authorAvatarColor)
+                }
+                Box(
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(22.dp)
                         .clip(CircleShape)
-                        .background(post.authorAvatarColor),
-                    contentScale = ContentScale.Crop
-                )
+                        .background(post.authorAvatarColor)
+                        .clickable { onProfileClick(post.authorId.ifBlank { post.authorHandle }) }
+                ) {
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        error = avatarPainter
+                    )
+                }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = post.authorName,
+                    text = post.authorName.ifBlank { "User" },
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                if (post.isVerifiedAuthor) {
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.Default.Verified,
+                        contentDescription = "Verified",
+                        tint = TwitterBlue,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
                 Text(
-                    text = " @${post.authorHandle} · ${formatTwitterTime(post.timestamp)}",
+                    text = " @${post.authorHandle.ifBlank { "user" }} · ${formatTwitterTime(post.timestamp)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            
-            if (post.content.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
+
+            if (post.content.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                HashtagText(
                     text = post.content,
-                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    maxLines = 6,
+                    onHashtagClick = onHashtagClick
                 )
             }
-            
+
             if (post.mediaUrls.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 MediaGrid(
@@ -374,6 +404,11 @@ fun QuotedPostCard(
                         onMediaClick(mediaUrl, if (isVideo) "video" else "image", 0L)
                     }
                 )
+            }
+
+            if (post.poll != null) {
+                Spacer(Modifier.height(8.dp))
+                PollView(poll = post.poll, onVote = { _ -> })
             }
         }
     }

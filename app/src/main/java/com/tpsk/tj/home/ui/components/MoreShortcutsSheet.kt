@@ -47,9 +47,11 @@ fun MoreShortcutsSheet(
     val shortcuts = java.util.Arrays.asList(
         ShortcutItem("Court", Icons.Outlined.AutoAwesome, Color(0xFFE91E63), Screen.Main.createRoute(tab = "mingle"), isEnabled = true),
         ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
-        ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route, isEnabled = false),
-        ShortcutItem("Stream", Icons.Default.MusicNote, Color(0xFF9C27B0), Screen.Stream.route, isEnabled = false),
-        ShortcutItem("Ride", Icons.Default.DirectionsCar, Color(0xFF00BCD4), Screen.Ride.route, isEnabled = false)
+        ShortcutItem("News", Icons.Default.Newspaper, Color(0xFF4CAF50), Screen.News.route, isEnabled = true),
+        ShortcutItem("Events", Icons.Default.Event, Color(0xFFFF5722), Screen.Events.route, isEnabled = true),
+        ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route, isEnabled = true),
+        ShortcutItem("Stream", Icons.Default.MusicNote, Color(0xFF9C27B0), Screen.Stream.route, isEnabled = true),
+        ShortcutItem("Ride", Icons.Default.DirectionsCar, Color(0xFF00BCD4), Screen.Ride.route, isEnabled = true)
     )
 
     AnimatedVisibility(

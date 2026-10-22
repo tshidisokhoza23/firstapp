@@ -131,5 +131,73 @@ fun AppNavigation(
                 chatViewModel = chatVm
             )
         }
+
+        composable(Screen.News.route) {
+            com.tpsk.tj.media.ui.screens.NewsScreen(
+                onBack = { navController.popBackStack() },
+                onArticleClick = { article ->
+                    navController.navigate(
+                        Screen.NewsWebView.createRoute(
+                            url = article.originalUrl,
+                            title = article.title,
+                            source = article.sourceName
+                        )
+                    )
+                },
+                onCommentsClick = { article ->
+                    navController.navigate(
+                        Screen.DiscussionThread.createRoute(
+                            postId = article.id,
+                            postTitle = article.title,
+                            postSubtitle = "${article.sourceName} • ${article.commentCount} Comments",
+                            authorName = article.sourceName,
+                            authorDistance = article.category,
+                            authorTime = article.timeAgo,
+                            postContent = article.title
+                        )
+                    )
+                }
+            )
+        }
+
+        composable(Screen.NewsWebView.route) { backStackEntry ->
+            val url = backStackEntry.arguments?.getString("url") ?: ""
+            val title = backStackEntry.arguments?.getString("title") ?: ""
+            val source = backStackEntry.arguments?.getString("source") ?: ""
+
+            com.tpsk.tj.media.ui.screens.NewsWebViewScreen(
+                url = url,
+                title = title,
+                source = source,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Events.route) {
+            com.tpsk.tj.media.ui.screens.EventsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.DiscussionThread.route) { backStackEntry ->
+            val postId = backStackEntry.arguments?.getString("postId") ?: ""
+            val postTitle = backStackEntry.arguments?.getString("postTitle") ?: ""
+            val postSubtitle = backStackEntry.arguments?.getString("postSubtitle") ?: ""
+            val authorName = backStackEntry.arguments?.getString("authorName") ?: ""
+            val authorDistance = backStackEntry.arguments?.getString("authorDistance") ?: ""
+            val authorTime = backStackEntry.arguments?.getString("authorTime") ?: ""
+            val postContent = backStackEntry.arguments?.getString("postContent") ?: ""
+
+            com.tpsk.tj.chat.nearby.ui.DiscussionThreadScreen(
+                postId = postId,
+                postTitle = postTitle,
+                postSubtitle = postSubtitle,
+                authorName = authorName,
+                authorDistance = authorDistance,
+                authorTime = authorTime,
+                postContent = postContent,
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }

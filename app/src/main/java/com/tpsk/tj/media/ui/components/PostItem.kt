@@ -3,6 +3,7 @@ package com.tpsk.tj.media.ui.components
 import com.tpsk.tj.LocalCurrentUser
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,7 +91,8 @@ fun PostItem(
     onMediaClick: (String, String, Long) -> Unit = { _, _, _ -> },
     onShareClick: (Post) -> Unit = {},
     onFollowClick: (String, Boolean) -> Unit = { _, _ -> },
-    onMoreClick: (Post) -> Unit = {}
+    onMoreClick: (Post) -> Unit = {},
+    onHashtagClick: (String) -> Unit = {}
 ) {
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT || post.type == PostType.NATIVE_AD || post.type == PostType.INTERNAL_AD) {
         if (displayMode == PostDisplayMode.FEED) {
@@ -139,6 +141,7 @@ fun PostItem(
                     onMediaClick = { url, type, pos -> onMediaClick(url, type, pos) },
                     onQuotedPostClick = onQuotedPostClick,
                     onVotePoll = onVotePoll,
+                    onHashtagClick = onHashtagClick,
                     modifier = Modifier.clickable(onClick = onClick)
                 )
             }
@@ -272,6 +275,7 @@ fun VerticalFeedPostCard(
     onMediaClick: (String, String, Long) -> Unit,
     onQuotedPostClick: (Post) -> Unit = {},
     onVotePoll: (String, String) -> Unit = { _, _ -> },
+    onHashtagClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -340,8 +344,8 @@ fun VerticalFeedPostCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 8.dp, start = contentPadding),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 8.dp, bottom = 4.dp, start = contentPadding),
+                verticalAlignment = Alignment.Top
             ) {
                 val targetProfileId = displayPost.authorId.ifBlank { displayPost.authorHandle }.ifBlank { post.authorId }.ifBlank { post.authorHandle }
 
@@ -354,7 +358,7 @@ fun VerticalFeedPostCard(
                     }
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(40.dp)
                             .clip(CircleShape)
                             .background(displayPost.authorAvatarColor)
                             .clickable { if (targetProfileId.isNotBlank()) onProfileClick(targetProfileId) }
@@ -367,7 +371,7 @@ fun VerticalFeedPostCard(
                             error = avatarPainter
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                 }
 
                 val ts = remember(displayPost.timestamp) { formatTwitterTime(displayPost.timestamp) }
@@ -377,7 +381,10 @@ fun VerticalFeedPostCard(
                         .weight(1f)
                         .clickable { if (targetProfileId.isNotBlank()) onProfileClick(targetProfileId) }
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text(
                             text = displayPost.authorName.ifBlank { "User" },
                             color = MaterialTheme.colorScheme.onSurface,
@@ -389,28 +396,50 @@ fun VerticalFeedPostCard(
                         )
                         if (displayPost.isVerifiedAuthor) {
                             Spacer(Modifier.width(4.dp))
-                            Icon(Icons.Default.Verified, "Verified", tint = TwitterBlue, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Verified, "Verified", tint = TwitterBlue, modifier = Modifier.size(15.dp))
                         }
                         if (ts.isNotBlank()) {
-                            Text(" · $ts", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1)
+                            Text(" · $ts", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 1)
                         }
                     }
-                    Text("@${displayPost.authorHandle.ifBlank { "user" }}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("@${displayPost.authorHandle.ifBlank { "user" }}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
 
-                if (!isOwnPost && !displayPost.isAuthorFollowed) {
-                    Button(
-                        onClick = onFollowClick,
-                        modifier = Modifier.height(32.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface, contentColor = MaterialTheme.colorScheme.surface),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text("Follow", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    if (!isOwnPost && !displayPost.isAuthorFollowed) {
+                        OutlinedButton(
+                            onClick = onFollowClick,
+                            modifier = Modifier.height(22.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            shape = RoundedCornerShape(11.dp)
+                        ) {
+                            Text("Follow", fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                     }
-                }
-                IconButton(onClick = onMoreClick) {
-                    Icon(Icons.Default.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable { onMoreClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.MoreHoriz,
+                            contentDescription = "More Options",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -443,7 +472,8 @@ fun VerticalFeedPostCard(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         lineHeight = 20.sp,
-                        maxLines = if (isExpanded) Int.MAX_VALUE else 5
+                        maxLines = if (isExpanded) Int.MAX_VALUE else 5,
+                        onHashtagClick = onHashtagClick
                     )
                     if (!isExpanded && displayPost.content.length > 200) {
                         Text("Show More", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true } )
@@ -527,6 +557,114 @@ fun VerticalFeedPostCard(
                 }
             }
 
+            // Job Post Card
+            if (displayPost.type == PostType.JOB) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = contentPadding)
+                        .clickable {
+                            com.tpsk.tj.common.util.GlobalNavigation.navigateTo(com.tpsk.tj.ui.navigation.Screen.JobDetail.createRoute(displayPost.id))
+                        }
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.primary),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Work, contentDescription = "Job", tint = Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = displayPost.content.take(80).ifBlank { "Job Opportunity" },
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = displayPost.authorName.ifBlank { "Hiring Manager" },
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    com.tpsk.tj.common.util.GlobalNavigation.navigateTo(com.tpsk.tj.ui.navigation.Screen.JobDetail.createRoute(displayPost.id))
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Apply", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Job Chips Row (Category, Location, Job Tag)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = "💼 Job",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                            if (displayPost.category.isNotBlank() && displayPost.category != "general") {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = displayPost.category,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+                            if (!displayPost.location.isNullOrBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = "📍 ${displayPost.location}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Polls & Quoted Posts (Padded)
             if (displayPost.poll != null) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -541,64 +679,65 @@ fun VerticalFeedPostCard(
                         post = quotedPost,
                         onProfileClick = onProfileClick,
                         onMediaClick = onMediaClick,
-                        onPostClick = onQuotedPostClick
+                        onPostClick = onQuotedPostClick,
+                        onHashtagClick = onHashtagClick
                     )
                 }
             }
 
-            // 4. BOTTOM ROW: INTERACTIONS (ADAPTIVE TEXT PILLS)
-            val isDark = isSystemInDarkTheme()
-            val barBgColor = Color.Transparent
-            val pillBgColor = if (isDark) Color(0xFF1E2228) else Color(0xFFF2F4F8)
-            val pillTextColor = if (isDark) Color(0xFFF3F4F6) else Color(0xFF1F2937)
-
-            val replyText = remember(displayPost.repliesCount) { "Reply ${formatCount(displayPost.repliesCount)}" }
-            val repostText = remember(post.repostCount) { "Repost ${formatCount(post.repostCount)}" }
-            val likeText = remember(post.likes) { "Like ${formatCount(post.likes)}" }
+            // 4. BOTTOM ROW: INTERACTIONS (CLEAN BORDERLESS ACTIONS)
+            val replyText = remember(displayPost.repliesCount) { if (displayPost.repliesCount > 0) "Reply ${formatCount(displayPost.repliesCount)}" else "Reply 0" }
+            val repostText = remember(post.repostCount) { if (post.repostCount > 0) "Repost ${formatCount(post.repostCount)}" else "Repost 0" }
+            val likeText = remember(post.likes) { if (post.likes > 0) "Like ${formatCount(post.likes)}" else "Like" }
             val viewsText = remember(post.views) { "Views ${formatCount(post.views)}" }
             val saveText = remember(post.isBookmarked, post.quoteCount) {
                 if (post.isBookmarked) "Saved ${formatCount(post.quoteCount)}" else "Save ${formatCount(post.quoteCount)}"
             }
             val shareText = remember(post.shares) { "Share ${formatCount(post.shares)}" }
 
+            val transparentBg = Color.Transparent
+            val actionTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp),
-                color = barBgColor
+                color = transparentBg
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = contentPadding)
+                        .padding(vertical = 8.dp, horizontal = contentPadding)
                         .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (post.isContest) {
+                    if (post.isContest && displayPost.type != PostType.JOB) {
                         com.tpsk.tj.ui.screens.contest.ContestVoteButton(
                             initialVotes = post.likes.toInt().coerceAtLeast(10)
                         )
                     }
 
-                    var showTip by remember(post.id) { mutableStateOf(false) }
-                    PostPill(
-                        text = "Tip 💸",
-                        icon = Icons.Outlined.AttachMoney,
-                        onClick = { showTip = true },
-                        backgroundColor = pillBgColor,
-                        textColor = Color(0xFF00E5FF)
-                    )
-                    if (showTip) {
-                        com.tpsk.tj.wallet.ui.TipPostDialog(postId = post.id, onDismiss = { showTip = false })
+                    if (displayPost.type != PostType.JOB) {
+                        var showTip by remember(post.id) { mutableStateOf(false) }
+                        PostPill(
+                            text = "Tip 💸",
+                            icon = Icons.Outlined.AttachMoney,
+                            onClick = { showTip = true },
+                            backgroundColor = transparentBg,
+                            textColor = Color(0xFF0284C7)
+                        )
+                        if (showTip) {
+                            com.tpsk.tj.wallet.ui.TipPostDialog(postId = post.id, onDismiss = { showTip = false })
+                        }
                     }
 
                     PostPill(
                         text = replyText, 
                         icon = Icons.Outlined.ChatBubbleOutline,
                         onClick = onCommentClick,
-                        backgroundColor = pillBgColor,
-                        textColor = pillTextColor
+                        backgroundColor = transparentBg,
+                        textColor = actionTextColor
                     )
                     PostPill(
                         text = repostText, 
@@ -606,8 +745,8 @@ fun VerticalFeedPostCard(
                         onClick = onRepostClick,
                         isSelected = post.isReposted,
                         selectedColor = Color(0xFF00BA7C),
-                        backgroundColor = pillBgColor,
-                        textColor = pillTextColor
+                        backgroundColor = transparentBg,
+                        textColor = actionTextColor
                     )
                     PostPill(
                         text = likeText, 
@@ -618,15 +757,15 @@ fun VerticalFeedPostCard(
                         },
                         isSelected = post.isLiked,
                         selectedColor = Color(0xFFF91880),
-                        backgroundColor = pillBgColor,
-                        textColor = pillTextColor
+                        backgroundColor = transparentBg,
+                        textColor = actionTextColor
                     )
                     PostPill(
                         text = viewsText, 
                         icon = Icons.Outlined.BarChart,
                         onClick = {},
-                        backgroundColor = pillBgColor,
-                        textColor = pillTextColor
+                        backgroundColor = transparentBg,
+                        textColor = actionTextColor
                     )
                     PostPill(
                         text = saveText, 
@@ -634,18 +773,24 @@ fun VerticalFeedPostCard(
                         onClick = onBookmarkClick,
                         isSelected = post.isBookmarked,
                         selectedColor = Color(0xFF1D9BF0),
-                        backgroundColor = pillBgColor,
-                        textColor = pillTextColor
+                        backgroundColor = transparentBg,
+                        textColor = actionTextColor
                     )
                     PostPill(
                         text = shareText, 
                         icon = Icons.Outlined.IosShare,
                         onClick = onShareClick,
-                        backgroundColor = pillBgColor,
-                        textColor = pillTextColor
+                        backgroundColor = transparentBg,
+                        textColor = actionTextColor
                     )
                 }
             }
+
+            HorizontalDivider(
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                modifier = Modifier.padding(top = 8.dp)
+            )
         }
     }
 }
@@ -666,34 +811,32 @@ private fun PostPill(
     onClick: () -> Unit,
     isSelected: Boolean = false,
     selectedColor: Color = Color.Unspecified,
-    backgroundColor: Color = Color(0xFF1A2232),
-    textColor: Color = Color(0xFFD1D5DB)
+    backgroundColor: Color = Color.Transparent,
+    textColor: Color = Color(0xFF6B7280)
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(50),
-        color = backgroundColor
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 6.dp, vertical = 4.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-            }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
-                maxLines = 1
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
+                modifier = Modifier.size(16.dp)
             )
+            Spacer(modifier = Modifier.width(4.dp))
         }
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,
+            maxLines = 1
+        )
     }
 }
 

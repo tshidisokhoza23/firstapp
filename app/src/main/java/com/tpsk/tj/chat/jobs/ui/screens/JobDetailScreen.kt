@@ -1,64 +1,39 @@
 package com.tpsk.tj.chat.jobs.ui.screens
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
-import androidx.compose.material.icons.filled.AttachMoney
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Report
-import androidx.compose.material.icons.filled.Work
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.tpsk.tj.chat.jobs.model.Job
-import com.tpsk.tj.chat.jobs.util.CustomTabsHelper
+import com.tpsk.tj.chat.nearby.model.NearbyReply
+import com.tpsk.tj.common.ui.theme.TwitterBlue
+import com.tpsk.tj.common.util.formatTwitterTime
+import com.tpsk.tj.media.ui.components.HashtagText
+import com.tpsk.tj.media.ui.components.ThreadComposerBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,11 +45,32 @@ fun JobDetailScreen(
     onNavigateToProfile: () -> Unit = {},
     onReportJob: (String, String) -> Unit = { _, _ -> }
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
 
+    var isLiked by remember(job.id) { mutableStateOf(false) }
+    var likeCount by remember(job.id) { mutableIntStateOf(0) }
+    var isSaved by remember(job.id) { mutableStateOf(job.isSaved) }
+
+    val publicReplies = remember(job.id) {
+        mutableStateListOf(
+            NearbyReply(
+                id = "reply_j1",
+                postId = job.id,
+                userId = "u_thabo",
+                authorName = "Thabo K.",
+                authorAvatarColor = Color(0xFFAB47BC),
+                content = "Are remote applicants from other provinces accepted for this position?",
+                createdAt = System.currentTimeMillis() - (15 * 60 * 1000L)
+            )
+        )
+    }
+
     val isAppliedInternal = job.isApplied || job.hasAppliedInternal
+    val handle = remember(job.companyName) {
+        job.companyName.lowercase().replace(Regex("[^a-z0-9]"), "")
+    }
 
     Scaffold(
         topBar = {
@@ -83,8 +79,8 @@ fun JobDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack, 
-                            contentDescription = "Back", 
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
                             tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
@@ -126,218 +122,495 @@ fun JobDetailScreen(
             )
         },
         bottomBar = {
-            com.tpsk.tj.common.ui.components.BannerAdView(
-                modifier = Modifier.navigationBarsPadding()
+            ThreadComposerBar(
+                onSend = { text ->
+                    val newReply = NearbyReply(
+                        id = "reply_job_" + System.currentTimeMillis(),
+                        postId = job.id,
+                        userId = "user_you",
+                        authorName = "You",
+                        content = text,
+                        createdAt = System.currentTimeMillis()
+                    )
+                    publicReplies.add(newReply)
+                },
+                replyToName = job.companyName,
+                modifier = Modifier
+                    .windowInsetsPadding(WindowInsets.ime)
+                    .navigationBarsPadding()
             )
         },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0)
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .background(Brush.verticalGradient(listOf(job.logoColor, MaterialTheme.colorScheme.surfaceVariant)))
-                    .padding(24.dp),
-                contentAlignment = Alignment.BottomStart
+            // 1. SOCIAL POST HEADER (Company Avatar, Verified Badge, Name, Handle, Time)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        modifier = Modifier.size(72.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 8.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = job.companyName.take(1).uppercase(),
-                                color = job.logoColor,
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(20.dp))
-                    Column {
-                        Text(
-                            text = job.title,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            lineHeight = 28.sp
+                // Company Avatar
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(job.logoColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!job.companyLogoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = job.companyLogoUrl,
+                            contentDescription = job.companyName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
+                    } else {
+                        Text(
+                            text = job.companyName.take(1).uppercase(),
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = job.companyName,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (job.isVerified) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                tint = TwitterBlue,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        if (job.postedTime > 0L) {
+                            Text(
+                                text = " · ${formatTwitterTime(job.postedTime.toString())}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 14.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    Text(
+                        text = "@$handle",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 2. JOB TITLE & DESCRIPTION
+            Text(
+                text = job.title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (job.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                HashtagText(
+                    text = job.description,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 15.sp,
+                    lineHeight = 22.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. EMBEDDED JOB CARD BOX WITH CHIPS & APPLY BUTTON
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.primary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Work, contentDescription = "Job", tint = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "JOB OPPORTUNITY",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = job.title,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Chips Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "💼 ${job.jobType}",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                        if (job.location.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = "📍 ${job.location}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                        if (job.salaryRange.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = "💰 ${job.salaryRange}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Apply Button
+                    Button(
+                        onClick = onApply,
+                        enabled = !isAppliedInternal,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = if (isAppliedInternal) "Applied" else "Apply Now",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
                         )
                     }
                 }
             }
 
-            Column(modifier = Modifier.padding(20.dp)) {
-                if (job.isExternal) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Public,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Partner Listing • Listed via ${job.sourcePartner ?: "External Source"}",
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    JobDetailChip(Icons.Default.LocationOn, job.location)
-                    JobDetailChip(Icons.Default.Work, job.jobType)
-                }
-                
-                if (job.salaryRange.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    JobDetailChip(Icons.Default.AttachMoney, job.salaryRange)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
+            // Requirements Section
+            if (job.requirements.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(20.dp))
                 Text(
-                    text = "Description",
+                    text = "Requirements",
                     color = MaterialTheme.colorScheme.onBackground,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = job.description,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp
-                )
-
-                if (job.requirements.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "Requirements",
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    job.requirements.forEach { req ->
-                        Row(modifier = Modifier.padding(vertical = 4.dp)) {
-                            Text("•", color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(16.dp))
-                            Text(text = req, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                        }
+                Spacer(modifier = Modifier.height(8.dp))
+                job.requirements.forEach { req ->
+                    Row(modifier = Modifier.padding(vertical = 3.dp)) {
+                        Text("•", color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(16.dp))
+                        Text(text = req, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                     }
                 }
-
-                if (job.isExternal) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Affiliate Disclosure: Listing provided via ${job.sourcePartner ?: "External Source"}. Tapping 'Apply' redirects to employer website.",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 16.sp
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                Button(
-                    onClick = {
-                        if (job.isExternal) {
-                            onExternalApplyClick(job.id)
-                            val applyUrl = job.trackingApplyUrl.takeIf { !it.isNullOrBlank() }
-                                ?: "${com.tpsk.tj.common.data.network.NetworkConstants.BASE_URL}api/v1/jobs/${job.id}/apply"
-                            CustomTabsHelper.launchUrl(context, applyUrl)
-                        } else {
-                            onApply()
-                        }
-                    },
-                    enabled = job.isExternal || !isAppliedInternal,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (job.isExternal) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
-                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        contentColor = if (job.isExternal) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        if (job.isExternal) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (job.hasClickedExternal) "Open Again (${job.sourcePartner ?: "Partner Site"})" else "Apply on ${job.sourcePartner ?: "Partner Site"}",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 16.sp
-                            )
-                        } else {
-                            Text(
-                                text = if (isAppliedInternal) "Applied" else "Apply Now",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 16.sp
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 4. SOCIAL ACTION BUTTONS ROW (Reply, Repost, Like, Views, Save, Share - No Tip, No Vote)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Reply
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onApply() }
+                        .padding(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChatBubbleOutline,
+                        contentDescription = "Reply",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Reply ${publicReplies.size}",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Repost / Share
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, "${job.title} at ${job.companyName}\n${job.location} • ${job.salaryRange}\nApply on TJ App!")
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Job"))
+                        }
+                        .padding(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Repeat,
+                        contentDescription = "Repost",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Repost 0",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Like / Upvote
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            isLiked = !isLiked
+                            likeCount = if (isLiked) likeCount + 1 else (likeCount - 1).coerceAtLeast(0)
+                        }
+                        .padding(6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = "Like",
+                        tint = if (isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (likeCount > 0) "Like $likeCount" else "Like",
+                        fontSize = 13.sp,
+                        color = if (isLiked) Color(0xFFF91880) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Views
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.BarChart,
+                        contentDescription = "Views",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Views ${if (job.viewsCount > 0) job.viewsCount else 24}",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Save / Bookmark
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { isSaved = !isSaved }
+                        .padding(6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isSaved) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = "Save",
+                        tint = if (isSaved) Color(0xFF1D9BF0) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isSaved) "Saved" else "Save",
+                        fontSize = 13.sp,
+                        color = if (isSaved) Color(0xFF1D9BF0) else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Share
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, "${job.title} at ${job.companyName}\n${job.location} • ${job.salaryRange}\nApply on TJ App!")
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Job"))
+                        }
+                        .padding(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.IosShare,
+                        contentDescription = "Share",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Share",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // 5. PUBLIC REPLIES & THREAD SECTION AT BOTTOM
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 16.dp),
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Text(
+                text = "Replies (${publicReplies.size})",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (publicReplies.isEmpty()) {
+                Text(
+                    text = "No replies yet. Be the first to reply or ask a question!",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                publicReplies.forEach { reply ->
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2196F3)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = reply.authorName.take(1).uppercase(),
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = reply.authorName,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    Text(
+                                        text = formatTwitterTime(reply.createdAt.toString()),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = reply.content,
+                                    fontSize = 13.sp,
+                                    lineHeight = 18.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
@@ -374,12 +647,11 @@ fun JobDetailScreen(
                 Button(
                     onClick = {
                         onReportJob(job.id, selectedReason)
-                        android.widget.Toast.makeText(context, "Thank you. Report submitted for review.", android.widget.Toast.LENGTH_LONG).show()
                         showReportDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        Toast.makeText(context, "Job listing reported", Toast.LENGTH_SHORT).show()
+                    }
                 ) {
-                    Text("Report", color = Color.White)
+                    Text("Submit Report")
                 }
             },
             dismissButton = {
@@ -388,23 +660,5 @@ fun JobDetailScreen(
                 }
             }
         )
-    }
-}
-
-@Composable
-fun JobDetailChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
-    Surface(
-        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        }
     }
 }
