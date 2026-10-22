@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.tpsk.tj.media.ui.viewmodel.NewsViewModel
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,103 +61,15 @@ fun NewsScreen(
     onBack: () -> Unit,
     onArticleClick: (NewsArticle) -> Unit = {},
     onCommentsClick: (NewsArticle) -> Unit = {},
-    onShareToChat: (NewsArticle) -> Unit = {}
+    onShareToChat: (NewsArticle) -> Unit = {},
+    newsViewModel: NewsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    var selectedCategory by remember { mutableStateOf("All") }
+    val selectedCategory by newsViewModel.selectedCategory.collectAsState()
+    val feedItems by newsViewModel.feedItems.collectAsState()
+    val isLoading by newsViewModel.isLoading.collectAsState()
+
     val categories = listOf("All", "Local", "Sports", "Entertainment", "National", "World")
-
-    val articlesList = remember {
-        mutableStateListOf(
-            NewsArticle(
-                id = "news_1",
-                title = "Wits University announces new campus safety & digital infrastructure measures",
-                sourceName = "TimesLIVE",
-                timeAgo = "2h ago",
-                imageUrl = "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800",
-                category = "Local",
-                summary = "Wits University management has rolled out enhanced security and campus Wi-Fi upgrades.",
-                originalUrl = "https://www.timeslive.co.za",
-                commentCount = 24,
-                likeCount = 142
-            ),
-            NewsArticle(
-                id = "news_2",
-                title = "Tembisa community launches new local entrepreneurship market",
-                sourceName = "SowetanLIVE",
-                timeAgo = "4h ago",
-                imageUrl = "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?w=800",
-                category = "Local",
-                summary = "Local business owners gather in Tembisa for the weekend community showcase.",
-                originalUrl = "https://www.sowetanlive.co.za",
-                commentCount = 18,
-                likeCount = 98
-            ),
-            NewsArticle(
-                id = "news_3",
-                title = "South Africa national team secures crucial victory in international qualifier",
-                sourceName = "SuperSport",
-                timeAgo = "6h ago",
-                imageUrl = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800",
-                category = "Sports",
-                summary = "A dramatic late goal seals victory in front of a packed stadium crowd.",
-                originalUrl = "https://supersport.com",
-                commentCount = 56,
-                likeCount = 310
-            ),
-            NewsArticle(
-                id = "news_4",
-                title = "Johannesburg Stock Exchange sees surge in tech and energy equities",
-                sourceName = "News24",
-                timeAgo = "8h ago",
-                imageUrl = "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800",
-                category = "National",
-                summary = "Markets rally as clean energy investments gain momentum across South Africa.",
-                originalUrl = "https://www.news24.com",
-                commentCount = 32,
-                likeCount = 184
-            ),
-            NewsArticle(
-                id = "news_5",
-                title = "South African music festival unveils stellar international lineup",
-                sourceName = "TimesLIVE",
-                timeAgo = "10h ago",
-                imageUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800",
-                category = "Entertainment",
-                summary = "Top Amapiano and Afrobeats artists prepare for the summer stadium showcase.",
-                originalUrl = "https://www.timeslive.co.za",
-                commentCount = 41,
-                likeCount = 275
-            ),
-            NewsArticle(
-                id = "news_6",
-                title = "Global climate summit agrees on new renewable energy initiatives",
-                sourceName = "News24",
-                timeAgo = "12h ago",
-                imageUrl = "https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=800",
-                category = "World",
-                summary = "World leaders unite on clean energy targets and sustainable infrastructure funding.",
-                originalUrl = "https://www.news24.com",
-                commentCount = 15,
-                likeCount = 89
-            )
-        )
-    }
-
-    // Filter and Interleave Native Ads every 5 news articles
-    val feedItems = remember(selectedCategory, articlesList.toList()) {
-        val filtered = if (selectedCategory == "All") articlesList
-        else articlesList.filter { it.category.equals(selectedCategory, ignoreCase = true) }
-
-        val items = mutableListOf<NewsFeedItem>()
-        filtered.forEachIndexed { index, article ->
-            items.add(NewsFeedItem.ArticleItem(article))
-            if ((index + 1) % 5 == 0) {
-                items.add(NewsFeedItem.NativeAdItem("ad_news_${index + 1}"))
-            }
-        }
-        items
-    }
 
     Scaffold(
         topBar = {
@@ -195,7 +109,7 @@ fun NewsScreen(
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = if (isSelected) Color(0xFF00B4D8) else MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.clickable { selectedCategory = cat }
+                        modifier = Modifier.clickable { newsViewModel.selectCategory(cat) }
                     ) {
                         Text(
                             text = cat,
@@ -208,54 +122,57 @@ fun NewsScreen(
                 }
             }
 
-            // News List with In-Feed Native Ads
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                itemsIndexed(feedItems, key = { index, item ->
-                    when (item) {
-                        is NewsFeedItem.ArticleItem -> "article_${item.article.id}"
-                        is NewsFeedItem.NativeAdItem -> "ad_${item.adId}_$index"
-                    }
-                }) { _, item ->
-                    when (item) {
-                        is NewsFeedItem.ArticleItem -> {
-                            val article = item.article
-                            NewsCard(
-                                article = article,
-                                onArticleClick = {
-                                    NewsCustomTabsHelper.launchNewsUrl(context, article.originalUrl) {
-                                        onArticleClick(article)
-                                    }
-                                },
-                                onCommentsClick = { onCommentsClick(article) },
-                                onLike = {
-                                    val index = articlesList.indexOfFirst { it.id == article.id }
-                                    if (index != -1) {
-                                        val current = articlesList[index]
-                                        val newLiked = !current.isLiked
-                                        val newLikes = if (newLiked) current.likeCount + 1 else current.likeCount - 1
-                                        articlesList[index] = current.copy(isLiked = newLiked, likeCount = newLikes)
-                                    }
-                                },
-                                onShareToChat = {
-                                    onShareToChat(article)
-                                    val sendIntent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(
-                                            Intent.EXTRA_TEXT,
-                                            "${article.title}\n${article.sourceName} • ${article.timeAgo}\n${article.originalUrl}\nRead on TJ News!"
-                                        )
-                                        type = "text/plain"
-                                    }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Share to Chat"))
-                                }
-                            )
+            if (isLoading && feedItems.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF00B4D8))
+                }
+            } else {
+                // News List with In-Feed Native Ads
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    itemsIndexed(feedItems, key = { index, item ->
+                        when (item) {
+                            is NewsFeedItem.ArticleItem -> "article_${item.article.id}"
+                            is NewsFeedItem.NativeAdItem -> "ad_${item.adId}_$index"
                         }
-                        is NewsFeedItem.NativeAdItem -> {
-                            NewsNativeAdCard(adId = item.adId)
+                    }) { _, item ->
+                        when (item) {
+                            is NewsFeedItem.ArticleItem -> {
+                                val article = item.article
+                                NewsCard(
+                                    article = article,
+                                    onArticleClick = {
+                                        NewsCustomTabsHelper.launchNewsUrl(context, article.originalUrl) {
+                                            onArticleClick(article)
+                                        }
+                                    },
+                                    onCommentsClick = { onCommentsClick(article) },
+                                    onLike = { newsViewModel.toggleLike(article.id) },
+                                    onShareToChat = {
+                                        onShareToChat(article)
+                                        val sendIntent = Intent().apply {
+                                            action = Intent.ACTION_SEND
+                                            putExtra(
+                                                Intent.EXTRA_TEXT,
+                                                "${article.title}\n${article.sourceName} • ${article.timeAgo}\n${article.originalUrl}\nRead on TJ News!"
+                                            )
+                                            type = "text/plain"
+                                        }
+                                        context.startActivity(Intent.createChooser(sendIntent, "Share to Chat"))
+                                    }
+                                )
+                            }
+                            is NewsFeedItem.NativeAdItem -> {
+                                NewsNativeAdCard(adId = item.adId)
+                            }
                         }
                     }
                 }

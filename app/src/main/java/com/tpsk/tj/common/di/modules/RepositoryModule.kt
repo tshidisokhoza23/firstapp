@@ -120,4 +120,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMingleRepository(impl: MingleRepositoryImpl): MingleRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNewsRepository(impl: NewsRepositoryImpl): NewsRepository
 }

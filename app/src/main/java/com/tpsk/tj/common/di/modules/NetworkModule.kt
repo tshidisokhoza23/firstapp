@@ -261,4 +261,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideStudioApi(retrofit: Retrofit): StudioApi = retrofit.create(StudioApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNewsApi(retrofit: Retrofit): com.tpsk.tj.media.data.api.NewsApi = retrofit.create(com.tpsk.tj.media.data.api.NewsApi::class.java)
 }
