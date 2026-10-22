@@ -763,19 +763,37 @@ fun NearbyPostCard(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // Recent commenter avatar stack preview
-                    if (post.recentCommenterAvatars.isNotEmpty()) {
+                    val repliers = post.replies.distinctBy { it.userId }.takeLast(3)
+                    if (repliers.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
-                            post.recentCommenterAvatars.take(3).forEachIndexed { idx, _ ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(22.dp)
-                                        .clip(CircleShape)
-                                        .background(listOf(Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF4CAF50))[idx % 3])
-                                        .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                            repliers.forEach { reply ->
+                                val avatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(reply.authorAvatarUrl)
+                                if (!avatarUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = avatarUrl,
+                                        contentDescription = reply.authorName,
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .background(reply.authorAvatarColor)
+                                            .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = reply.authorName.take(1).uppercase(),
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }
