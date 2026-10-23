@@ -14,16 +14,16 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.tpsk.tj.chat.nearby.data.NearbyRepository
+import com.tpsk.tj.chat.nearby.model.NearbyChatRequest
 import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
 import com.tpsk.tj.common.util.Resource
-import com.tpsk.tj.common.ui.viewmodel.UserViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -59,8 +59,15 @@ class NearbyViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(NearbyUiState())
     val uiState: StateFlow<NearbyUiState> = _uiState.asStateFlow()
 
+    val chatRequests: StateFlow<List<NearbyChatRequest>> = MutableStateFlow(emptyList())
+
     init {
         refreshLocationAndFeed()
+        viewModelScope.launch {
+            repository.getChatRequests().collect { list ->
+                (chatRequests as MutableStateFlow).value = list
+            }
+        }
     }
 
     fun refreshLocationAndFeed() {
@@ -94,7 +101,7 @@ class NearbyViewModel @Inject constructor(
                 hasLocationFix = true
             )
 
-            loadFeed(resolved.lat, resolved.lng, _uiState.value.radiusKm, null)
+            loadFeed(resolved.lat, resolved.lng, _uiState.value.radiusKm, _uiState.value.selectedCity)
         }
     }
 
@@ -103,7 +110,13 @@ class NearbyViewModel @Inject constructor(
             repository.getNearbyPosts(lat, lng, radiusKm, selectedCity).collect { result ->
                 when (result) {
                     is Resource.Success -> {
-                        val postsList = result.data.orEmpty()
+                        var postsList = result.data.orEmpty()
+                        if (!selectedCity.isNullOrBlank()) {
+                            postsList = postsList.filter {
+                                it.coarseAreaName.contains(selectedCity, ignoreCase = true) ||
+                                selectedCity.contains(it.coarseAreaName, ignoreCase = true)
+                            }
+                        }
                         val reason = if (postsList.isEmpty()) {
                             if (!_uiState.value.hasLocationPermission) "NO_LOCATION_PERMISSION"
                             else "EMPTY_AREA"
@@ -303,20 +316,18 @@ class NearbyViewModel @Inject constructor(
         }
     }
 
-    fun createPost(
+    fun createPostWithImages(
         content: String,
         authorId: String,
         authorName: String,
         authorAvatarUrl: String? = null,
+        areaName: String? = null,
+        imageUrls: List<String> = emptyList(),
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            if (!_uiState.value.hasLocationFix) {
-                onError("Turn on location so Nearby can use your area")
-                return@launch
-            }
-            val area = _uiState.value.coarseAreaName
+            val area = areaName?.takeIf { it.isNotBlank() } ?: _uiState.value.coarseAreaName
             repository.createPost(
                 content = content,
                 authorId = authorId,
@@ -324,7 +335,8 @@ class NearbyViewModel @Inject constructor(
                 authorAvatarUrl = authorAvatarUrl,
                 areaName = area,
                 latitude = _uiState.value.userLat,
-                longitude = _uiState.value.userLng
+                longitude = _uiState.value.userLng,
+                imageUrls = imageUrls
             ).collect { result ->
                 when (result) {
                     is Resource.Success -> {
@@ -332,20 +344,62 @@ class NearbyViewModel @Inject constructor(
                         if (created != null) {
                             _uiState.value = _uiState.value.copy(
                                 posts = listOf(created) + _uiState.value.posts.filter { it.id != created.id },
-                                showCreatePostSheet = false,
                                 errorMessage = null
                             )
                         }
                         onSuccess()
                         refreshLocationAndFeed()
                     }
-                    is Resource.Error -> {
-                        onError(result.message ?: "Failed to post")
-                    }
+                    is Resource.Error -> onError(result.message ?: "Failed to post")
                     is Resource.Loading -> Unit
                 }
             }
         }
+    }
+
+    fun getMyPosts(userId: String): List<NearbyPost> {
+        return repository.getMyPosts(userId)
+    }
+
+    fun deletePost(postId: String) {
+        repository.deletePost(postId)
+        refreshLocationAndFeed()
+    }
+
+    fun markPostResolved(postId: String, isResolved: Boolean) {
+        repository.markPostResolved(postId, isResolved)
+        refreshLocationAndFeed()
+    }
+
+    fun editPost(postId: String, newContent: String, newArea: String) {
+        repository.editPost(postId, newContent, newArea)
+        refreshLocationAndFeed()
+    }
+
+    fun sendChatRequest(
+        post: NearbyPost,
+        inquiryMessage: String,
+        senderId: String,
+        senderName: String,
+        senderAvatarUrl: String? = null,
+        onSuccess: () -> Unit
+    ) {
+        val snippet = "Re: ${post.content.take(30)} • ${post.coarseAreaName}"
+        repository.sendChatRequest(
+            postId = post.id,
+            recipientId = post.userId,
+            recipientName = post.authorName,
+            snippet = snippet,
+            inquiryMessage = inquiryMessage,
+            senderId = senderId,
+            senderName = senderName,
+            senderAvatarUrl = senderAvatarUrl
+        )
+        onSuccess()
+    }
+
+    fun respondChatRequest(requestId: String, accept: Boolean) {
+        repository.respondChatRequest(requestId, accept)
     }
 
     fun replyToPost(
@@ -362,7 +416,6 @@ class NearbyViewModel @Inject constructor(
                 when (result) {
                     is Resource.Success -> {
                         refreshLocationAndFeed()
-                        // Update active thread post if currently open
                         val currentActive = _uiState.value.activeThreadPost
                         if (currentActive?.id == postId) {
                             val updatedReply = result.data

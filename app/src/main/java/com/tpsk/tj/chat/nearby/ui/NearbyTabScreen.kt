@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.tpsk.tj.chat.nearby.ui
 
 import android.Manifest
@@ -8,11 +10,12 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -44,7 +46,6 @@ import com.tpsk.tj.common.ui.viewmodel.UserViewModel
 import com.tpsk.tj.common.util.formatTwitterTime
 import com.tpsk.tj.ui.navigation.Screen
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NearbyTabScreen(
     navController: NavController,
@@ -56,9 +57,10 @@ fun NearbyTabScreen(
     val uiState by nearbyViewModel.uiState.collectAsState()
     val currentUser by userViewModel.currentUser.collectAsState()
 
-    var showCreatePostSheet by remember { mutableStateOf(false) }
     var showRadiusPickerSheet by remember { mutableStateOf(false) }
     var showCityPickerSheet by remember { mutableStateOf(false) }
+    var showNearbyDrawerSheet by remember { mutableStateOf(false) }
+    var chatRequestPostTarget by remember { mutableStateOf<NearbyPost?>(null) }
 
     val authorName = remember(currentUser) {
         currentUser?.displayName?.ifBlank { currentUser?.username }?.ifBlank { "You" } ?: "You"
@@ -122,7 +124,7 @@ fun NearbyTabScreen(
                 }
             }
 
-            // Item 2: Radar Header Section (Scrolls naturally with the feed)
+            // Item 2: Radar Header Section
             item(key = "radar_header") {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -130,23 +132,49 @@ fun NearbyTabScreen(
                         .fillMaxWidth()
                         .padding(top = 16.dp, bottom = 12.dp)
                 ) {
-                    // Radar Badge Icon
-                    Box(
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF0F2B36)),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Radar,
-                            contentDescription = "Radar",
-                            tint = Color(0xFF00B4D8),
-                            modifier = Modifier.size(28.dp)
-                        )
+                        IconButton(onClick = { showNearbyDrawerSheet = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        // Radar Badge Icon
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF0F2B36)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Radar,
+                                contentDescription = "Radar",
+                                tint = Color(0xFF00B4D8),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        IconButton(onClick = {
+                            navController.navigate(Screen.MyNearbyPosts.route)
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.EditNote,
+                                contentDescription = "My Posts",
+                                tint = Color(0xFF00B4D8)
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
                         text = "Nearby",
@@ -165,11 +193,11 @@ fun NearbyTabScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Location / Radius Chip
+                    // Location / Radius Chip Switcher
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.clickable { showRadiusPickerSheet = true }
+                        modifier = Modifier.clickable { showCityPickerSheet = true }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
@@ -183,26 +211,19 @@ fun NearbyTabScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "${uiState.coarseAreaName} • Within ${uiState.radiusKm} km",
+                                text = "📍 ${uiState.coarseAreaName} • Within ${uiState.radiusKm} km ▾",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Item 3: Empty/Permission Card or Feed Posts List
+            // Item 3: Empty Area State or Feed Posts List
             if (uiState.posts.isEmpty()) {
-                item(key = "empty_or_permission_state") {
+                item(key = "empty_state") {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -210,7 +231,6 @@ fun NearbyTabScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         if (!uiState.hasLocationPermission) {
-                            // Location Permission Denied State Card
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -255,20 +275,11 @@ fun NearbyTabScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(20.dp)
                                     ) {
-                                        Text("Allow location")
-                                    }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    OutlinedButton(
-                                        onClick = { showCityPickerSheet = true },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(20.dp)
-                                    ) {
-                                        Text("Select City/Town Manually")
+                                        Text("Allow Location")
                                     }
                                 }
                             }
                         } else {
-                            // Sparse Area / Onboarding Card
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -281,46 +292,36 @@ fun NearbyTabScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.DynamicFeed,
+                                        imageVector = Icons.Outlined.Explore,
                                         contentDescription = null,
                                         tint = Color(0xFF00B4D8),
-                                        modifier = Modifier.size(48.dp)
+                                        modifier = Modifier.size(52.dp)
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        text = "Be the first to post in your area!",
+                                        text = "No community posts in ${uiState.coarseAreaName} yet.",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
                                         textAlign = TextAlign.Center
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = if (!uiState.hasLocationFix) {
-                                            "Nearby could not read your location. Turn on location, or pick your city."
-                                        } else {
-                                            "No posts found within ${uiState.radiusKm} km in ${uiState.coarseAreaName}."
-                                        },
+                                        text = "Be the first to start the conversation!",
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Button(
-                                        onClick = { showCreatePostSheet = true },
-                                        shape = RoundedCornerShape(20.dp)
+                                        onClick = {
+                                            navController.navigate(Screen.CreateNearbyPost.createRoute(uiState.coarseAreaName))
+                                        },
+                                        shape = RoundedCornerShape(20.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B4D8))
                                     ) {
-                                        Icon(Icons.Default.HelpOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Ask a question to people nearby")
-                                    }
-                                    if (!uiState.hasLocationFix) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        OutlinedButton(
-                                            onClick = { showCityPickerSheet = true },
-                                            shape = RoundedCornerShape(20.dp)
-                                        ) {
-                                            Text("Select City/Town Manually")
-                                        }
+                                        Text("Post to ${uiState.coarseAreaName}", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -333,6 +334,7 @@ fun NearbyTabScreen(
                         NearbyPostCard(
                             post = post,
                             currentUserAvatarUrl = currentUser?.avatarUrl,
+                            currentUserId = authorId,
                             onLike = { nearbyViewModel.toggleLike(post.id) },
                             onReply = {
                                 navController.navigate(
@@ -346,6 +348,9 @@ fun NearbyTabScreen(
                                         postContent = post.content
                                     )
                                 )
+                            },
+                            onRequestChat = {
+                                chatRequestPostTarget = post
                             },
                             onShare = {
                                 val sendIntent: Intent = Intent().apply {
@@ -370,9 +375,11 @@ fun NearbyTabScreen(
             }
         }
 
-        // Floating Action Button ("Post +") anchored bottom-right
+        // Floating Action Button ("Post +")
         FloatingActionButton(
-            onClick = { showCreatePostSheet = true },
+            onClick = {
+                navController.navigate(Screen.CreateNearbyPost.createRoute(uiState.coarseAreaName))
+            },
             containerColor = Color(0xFF1B3B36),
             contentColor = Color.White,
             shape = RoundedCornerShape(24.dp),
@@ -401,123 +408,229 @@ fun NearbyTabScreen(
         }
     }
 
-    // Modal Sheet: Create Nearby Post
-    if (showCreatePostSheet) {
-        CreateNearbyPostSheet(
-            areaName = uiState.coarseAreaName,
-            onDismiss = { showCreatePostSheet = false },
-            onSubmit = { content ->
-                nearbyViewModel.createPost(
-                    content = content,
-                    authorId = authorId,
-                    authorName = authorName,
-                    authorAvatarUrl = currentUser?.avatarUrl,
-                    onSuccess = {
-                        showCreatePostSheet = false
-                        Toast.makeText(context, "Posted to Nearby! 🚀", Toast.LENGTH_SHORT).show()
-                    },
-                    onError = { err ->
-                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
-        )
-    }
-
-    // Modal Sheet: Full Thread & Replies
-    uiState.activeThreadPost?.let { activePost ->
-        NearbyPostThreadSheet(
-            post = activePost,
-            currentUserAvatarUrl = currentUser?.avatarUrl,
-            onDismiss = { nearbyViewModel.closeThread() },
-            onSendReply = { text ->
-                nearbyViewModel.replyToPost(
-                    postId = activePost.id,
-                    replyContent = text,
-                    authorId = authorId,
-                    authorName = authorName,
-                    authorAvatarUrl = currentUser?.avatarUrl,
-                    onSuccess = {
-                        Toast.makeText(context, "Reply added!", Toast.LENGTH_SHORT).show()
-                    },
-                    onError = { err ->
-                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
-        )
-    }
-
-    // Modal Sheet: Radius Picker
-    if (showRadiusPickerSheet) {
-        AlertDialog(
-            onDismissRequest = { showRadiusPickerSheet = false },
-            title = { Text("Search Radius", fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    listOf(5, 10, 15, 25).forEach { r ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    nearbyViewModel.setRadius(r)
-                                    showRadiusPickerSheet = false
-                                }
-                                .padding(vertical = 10.dp)
-                        ) {
-                            RadioButton(
-                                selected = uiState.radiusKm == r,
-                                onClick = {
-                                    nearbyViewModel.setRadius(r)
-                                    showRadiusPickerSheet = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("$r km radius")
-                        }
-                    }
-                }
+    if (showNearbyDrawerSheet) {
+        NearbyDrawerSheet(
+            onDismiss = { showNearbyDrawerSheet = false },
+            onNavigateMyPosts = {
+                navController.navigate(Screen.MyNearbyPosts.route)
             },
-            confirmButton = {
-                TextButton(onClick = { showRadiusPickerSheet = false }) {
-                    Text("Close")
-                }
+            onNavigateChatRequests = {
+                navController.navigate(Screen.ChatRequests.route)
+            },
+            onSelectLocation = {
+                showCityPickerSheet = true
             }
         )
     }
 
-    // Modal Sheet: Manual City Picker
     if (showCityPickerSheet) {
-        AlertDialog(
-            onDismissRequest = { showCityPickerSheet = false },
-            title = { Text("Select City / Area Manually", fontWeight = FontWeight.Bold) },
-            text = {
-                Column {
-                    listOf("Braamfontein", "Soweto", "Hatfield", "Sunnyside", "Sandton", "Rosebank", "Centurion", "Pretoria").forEach { city ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    nearbyViewModel.setSelectedCity(city)
-                                    showCityPickerSheet = false
-                                }
-                                .padding(vertical = 10.dp)
-                        ) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF00B4D8))
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(city, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showCityPickerSheet = false }) {
-                    Text("Cancel")
-                }
+        AreaPickerSheet(
+            currentArea = uiState.coarseAreaName,
+            onDismiss = { showCityPickerSheet = false },
+            onAreaSelected = { city ->
+                nearbyViewModel.setSelectedCity(city)
+                showCityPickerSheet = false
             }
         )
+    }
+
+    chatRequestPostTarget?.let { post ->
+        PrivateChatRequestSheet(
+            post = post,
+            onDismiss = { chatRequestPostTarget = null },
+            onSendRequest = { inquiry ->
+                nearbyViewModel.sendChatRequest(
+                    post = post,
+                    inquiryMessage = inquiry,
+                    senderId = authorId,
+                    senderName = authorName,
+                    senderAvatarUrl = currentUser?.avatarUrl,
+                    onSuccess = {
+                        chatRequestPostTarget = null
+                        Toast.makeText(context, "Chat request sent to ${post.authorName}!", Toast.LENGTH_LONG).show()
+                    }
+                )
+            }
+        )
+    }
+}
+
+@Composable
+fun NearbyDrawerSheet(
+    onDismiss: () -> Unit,
+    onNavigateMyPosts: () -> Unit,
+    onNavigateChatRequests: () -> Unit,
+    onSelectLocation: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+                .navigationBarsPadding()
+        ) {
+            Text(
+                text = "Nearby Options",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+            )
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+            ListItem(
+                headlineContent = { Text("My Posts", fontWeight = FontWeight.SemiBold) },
+                leadingContent = { Icon(Icons.Default.EditNote, contentDescription = null, tint = Color(0xFF00B4D8)) },
+                modifier = Modifier.clickable {
+                    onDismiss()
+                    onNavigateMyPosts()
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+
+            ListItem(
+                headlineContent = { Text("Message Requests", fontWeight = FontWeight.SemiBold) },
+                leadingContent = { Icon(Icons.Default.MarkEmailUnread, contentDescription = null, tint = Color(0xFF00B4D8)) },
+                modifier = Modifier.clickable {
+                    onDismiss()
+                    onNavigateChatRequests()
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+
+            ListItem(
+                headlineContent = { Text("Switch Location / Area", fontWeight = FontWeight.SemiBold) },
+                leadingContent = { Icon(Icons.Default.Place, contentDescription = null, tint = Color(0xFF00B4D8)) },
+                modifier = Modifier.clickable {
+                    onDismiss()
+                    onSelectLocation()
+                },
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+    }
+}
+
+@Composable
+fun PrivateChatRequestSheet(
+    post: NearbyPost,
+    onDismiss: () -> Unit,
+    onSendRequest: (inquiryMessage: String) -> Unit
+) {
+    var message by remember { mutableStateOf("") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+                .navigationBarsPadding()
+                .imePadding()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF00B4D8)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!post.authorAvatarUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = post.authorAvatarUrl,
+                            contentDescription = post.authorName,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Text(
+                            text = post.authorName.take(1).uppercase(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        text = "Message ${post.authorName} Privately",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Send a private inquiry request without spamming inbox",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = "REGARDING POST",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF00B4D8)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = post.content,
+                        fontSize = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedTextField(
+                value = message,
+                onValueChange = { if (it.length <= 250) message = it },
+                placeholder = { Text("Write your private inquiry message...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (message.trim().isNotBlank()) {
+                        onSendRequest(message.trim())
+                    }
+                },
+                enabled = message.trim().isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B4D8))
+            ) {
+                Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Send Private Request", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -525,8 +638,10 @@ fun NearbyTabScreen(
 fun NearbyPostCard(
     post: NearbyPost,
     currentUserAvatarUrl: String?,
+    currentUserId: String,
     onLike: () -> Unit,
     onReply: () -> Unit,
+    onRequestChat: () -> Unit,
     onShare: () -> Unit,
     onReport: () -> Unit,
     onBlockUser: () -> Unit
@@ -542,12 +657,11 @@ fun NearbyPostCard(
             .clickable { onReply() }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header Row: Avatar, Author Name + Distance, 3-dot Menu
+            // Header Row
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Author Avatar
                 if (!post.authorAvatarUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = com.tpsk.tj.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
@@ -576,7 +690,6 @@ fun NearbyPostCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Author Display Name + rounded distance
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
@@ -598,7 +711,6 @@ fun NearbyPostCard(
                     )
                 }
 
-                // 3-Dot Menu
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
@@ -614,6 +726,16 @@ fun NearbyPostCard(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        if (post.userId != currentUserId) {
+                            DropdownMenuItem(
+                                text = { Text("Message Privately") },
+                                leadingIcon = { Icon(Icons.Default.Chat, contentDescription = null, tint = Color(0xFF00B4D8)) },
+                                onClick = {
+                                    showMenu = false
+                                    onRequestChat()
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text("Report Post") },
                             leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
@@ -636,7 +758,6 @@ fun NearbyPostCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Post Body Text
             Text(
                 text = post.content,
                 fontSize = 15.sp,
@@ -644,9 +765,25 @@ fun NearbyPostCard(
                 color = MaterialTheme.colorScheme.onSurface
             )
 
+            if (post.imageUrls.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(post.imageUrls) { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(RoundedCornerShape(10.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Action Bar: Reply, Like/Upvote, Share
+            // Action Bar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -672,7 +809,32 @@ fun NearbyPostCard(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(28.dp))
+                Spacer(modifier = Modifier.width(20.dp))
+
+                // Request Chat option (for non-author)
+                if (post.userId != currentUserId) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clickable { onRequestChat() }
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            contentDescription = "Request Chat",
+                            tint = Color(0xFF00B4D8),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Request Chat",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF00B4D8)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(20.dp))
+                }
 
                 // Like Icon + Count
                 Row(
@@ -710,444 +872,6 @@ fun NearbyPostCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Share",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Mini Reply Input Bar (matching mockup)
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onReply() }
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    if (!currentUserAvatarUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = com.tpsk.tj.common.util.MediaUtils.formatUrl(currentUserAvatarUrl),
-                            contentDescription = "You",
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF00B4D8)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Text(
-                        text = "Write a reply...",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    val repliers = post.replies.distinctBy { it.userId }.takeLast(3)
-                    if (repliers.isNotEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
-                            repliers.forEach { reply ->
-                                val avatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(reply.authorAvatarUrl)
-                                if (!avatarUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = avatarUrl,
-                                        contentDescription = reply.authorName,
-                                        modifier = Modifier
-                                            .size(22.dp)
-                                            .clip(CircleShape)
-                                            .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(22.dp)
-                                            .clip(CircleShape)
-                                            .background(reply.authorAvatarColor)
-                                            .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = reply.authorName.take(1).uppercase(),
-                                            color = Color.White,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CreateNearbyPostSheet(
-    areaName: String,
-    onDismiss: () -> Unit,
-    onSubmit: (String) -> Unit
-) {
-    var text by remember { mutableStateOf("") }
-    val maxChars = 500
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentWindowInsets = { WindowInsets.ime }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding()
-                .navigationBarsPadding()
-                .padding(20.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "Post to Nearby",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF00B4D8).copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = areaName,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF00B4D8),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedTextField(
-                value = text,
-                onValueChange = { if (it.length <= maxChars) text = it },
-                placeholder = { Text("What's happening around you? (e.g. questions, local events, lost items)") },
-                minLines = 4,
-                maxLines = 8,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "${text.length}/$maxChars",
-                    fontSize = 12.sp,
-                    color = if (text.length >= maxChars) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Button(
-                    onClick = { onSubmit(text) },
-                    enabled = text.trim().isNotEmpty(),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text("Publish Post")
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NearbyPostThreadSheet(
-    post: NearbyPost,
-    currentUserAvatarUrl: String?,
-    onDismiss: () -> Unit,
-    onSendReply: (String) -> Unit
-) {
-    var replyText by remember { mutableStateOf("") }
-    var showRulesBanner by remember { mutableStateOf(false) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentWindowInsets = { WindowInsets.ime }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.88f)
-                .imePadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp)
-        ) {
-            // Group Chat Top Header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF0F2B36)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Forum,
-                        contentDescription = "Public Group Thread",
-                        tint = Color(0xFF00B4D8),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "${post.authorName}'s Public Thread",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = "${post.coarseAreaName} • ${post.replyCount + 1} participants",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                // Group Rules Info Button
-                IconButton(
-                    onClick = { showRulesBanner = !showRulesBanner },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Thread Rules",
-                        tint = if (showRulesBanner) Color(0xFF00B4D8) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Community Thread Rules Card Banner
-            AnimatedVisibility(
-                visible = showRulesBanner,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF0F2B36),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Gavel, contentDescription = null, tint = Color(0xFF00B4D8), modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Community Thread Rules",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp,
-                                color = Color.White
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "1. Public Forum: All replies are visible to everyone nearby in ${post.coarseAreaName}.\n" +
-                                    "2. No Inbox Flooding: Replying stays inside this public group thread and will NEVER create a private 1-on-1 chat in your inbox.\n" +
-                                    "3. Respect & Safety: No harassment, spam, or hate speech. Max 500 characters.\n" +
-                                    "4. Privacy First: Exact GPS coordinates are never disclosed. All locations remain approximate.",
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                    }
-                }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-            // Messages & Pinned Original Post List
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(vertical = 8.dp)
-            ) {
-                // Pinned Original Post Card
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        border = BorderStroke(0.8.dp, Color(0xFF00B4D8).copy(alpha = 0.3f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (!post.authorAvatarUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = com.tpsk.tj.common.util.MediaUtils.formatUrl(post.authorAvatarUrl),
-                                        contentDescription = post.authorName,
-                                        modifier = Modifier.size(36.dp).clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .background(post.authorAvatarColor),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(post.authorName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(post.authorName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(8.dp),
-                                            color = Color(0xFF00B4D8).copy(alpha = 0.15f)
-                                        ) {
-                                            Text(
-                                                text = "PINNED POST",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF00B4D8),
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                    }
-                                    Text("${post.coarseAreaName} • ${post.distanceKm} km away", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(post.content, fontSize = 14.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurface)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Public Group Replies (${post.replies.size})",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                // Public Group Reply Chat Bubbles
-                items(post.replies, key = { it.id }) { reply ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        if (!reply.authorAvatarUrl.isNullOrBlank()) {
-                            AsyncImage(
-                                model = com.tpsk.tj.common.util.MediaUtils.formatUrl(reply.authorAvatarUrl),
-                                contentDescription = reply.authorName,
-                                modifier = Modifier.size(32.dp).clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(reply.authorAvatarColor),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(reply.authorName.take(1).uppercase(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Surface(
-                            shape = RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(reply.authorName, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF00B4D8))
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(reply.content, fontSize = 13.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurface)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = formatTwitterTime(reply.createdAt.toString()),
-                                    fontSize = 10.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                    modifier = Modifier.align(Alignment.End)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Group Chat Reply Input Bar
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(vertical = 10.dp)
-            ) {
-                OutlinedTextField(
-                    value = replyText,
-                    onValueChange = { replyText = it },
-                    placeholder = { Text("Write a public group reply...") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(24.dp),
-                    singleLine = true
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(
-                    onClick = {
-                        if (replyText.trim().isNotEmpty()) {
-                            onSendReply(replyText)
-                            replyText = ""
-                        }
-                    },
-                    enabled = replyText.trim().isNotEmpty()
-                ) {
-                    Icon(Icons.Default.Send, contentDescription = "Send", tint = Color(0xFF00B4D8))
                 }
             }
         }

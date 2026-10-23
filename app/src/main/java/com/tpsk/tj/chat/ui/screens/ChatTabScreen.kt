@@ -411,6 +411,15 @@ fun ChatsListScreen(
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
                             ListItem(
+                                headlineContent = { Text("Message Requests", color = MaterialTheme.colorScheme.onSurface) },
+                                leadingContent = { Icon(Icons.Default.MarkEmailUnread, null, tint = Color(0xFF00B4D8)) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.ChatRequests.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                            ListItem(
                                 headlineContent = { Text("Mingle Activity", color = MaterialTheme.colorScheme.onSurface) },
                                 leadingContent = { Icon(Icons.Default.Favorite, null, tint = Color(0xFFE91E63)) },
                                 trailingContent = {

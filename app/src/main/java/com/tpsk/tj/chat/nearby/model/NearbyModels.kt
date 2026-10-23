@@ -16,10 +16,15 @@ data class NearbyPost(
     val likeCount: Int = 0,
     val replyCount: Int = 0,
     val isLiked: Boolean = false,
+    val isResolved: Boolean = false,
+    val imageUrls: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val replies: List<NearbyReply> = emptyList(),
     val recentCommenterAvatars: List<String> = emptyList()
-)
+) {
+    val statusBadge: String
+        get() = if (isResolved) "Resolved" else "Active"
+}
 
 data class NearbyReply(
     val id: String,
@@ -29,5 +34,18 @@ data class NearbyReply(
     val authorAvatarUrl: String? = null,
     val authorAvatarColor: Color = Color(0xFF9C27B0),
     val content: String,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+data class NearbyChatRequest(
+    val id: String,
+    val senderId: String,
+    val senderName: String,
+    val senderAvatarUrl: String? = null,
+    val recipientId: String,
+    val recipientName: String,
+    val postReferenceSnippet: String,
+    val postId: String,
+    val inquiryMessage: String,
     val createdAt: Long = System.currentTimeMillis()
 )

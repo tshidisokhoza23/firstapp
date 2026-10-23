@@ -145,4 +145,9 @@ sealed class Screen(val route: String) {
             postContent: String = ""
         ) = "discussion_thread?postId=${android.net.Uri.encode(postId)}&postTitle=${android.net.Uri.encode(postTitle)}&postSubtitle=${android.net.Uri.encode(postSubtitle)}&authorName=${android.net.Uri.encode(authorName)}&authorDistance=${android.net.Uri.encode(authorDistance)}&authorTime=${android.net.Uri.encode(authorTime)}&postContent=${android.net.Uri.encode(postContent)}"
     }
+    object CreateNearbyPost : Screen("create_nearby_post?area={area}") {
+        fun createRoute(area: String = "") = "create_nearby_post?area=${android.net.Uri.encode(area)}"
+    }
+    object MyNearbyPosts : Screen("my_nearby_posts")
+    object ChatRequests : Screen("chat_requests")
 }

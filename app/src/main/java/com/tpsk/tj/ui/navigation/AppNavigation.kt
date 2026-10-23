@@ -199,5 +199,27 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() }
             )
         }
+
+        composable(Screen.CreateNearbyPost.route) { backStackEntry ->
+            val area = backStackEntry.arguments?.getString("area") ?: ""
+            com.tpsk.tj.chat.nearby.ui.CreateNearbyPostScreen(
+                initialArea = area,
+                onBack = { navController.popBackStack() },
+                onPostCreated = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.MyNearbyPosts.route) {
+            com.tpsk.tj.chat.nearby.ui.MyNearbyPostsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.ChatRequests.route) {
+            com.tpsk.tj.chat.ui.screens.ChatRequestsScreen(
+                navController = navController,
+                onBack = { navController.popBackStack() }
+            )
+        }
     }
 }
