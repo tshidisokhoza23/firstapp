@@ -150,6 +150,7 @@ fun ChatsListScreen(
     var topBarHeight by remember { mutableStateOf(0.dp) }
     var isChatInitialScrollDone by remember { mutableStateOf(false) }
     var showTopMoreSheet by remember { mutableStateOf(false) }
+    var openNearbyCityPickerTrigger by remember { mutableIntStateOf(0) }
     var selectedDmForMenu by remember { mutableStateOf<ChatMessage?>(null) }
 
     BackHandler(enabled = isSearchActive || showTopMoreSheet) {
@@ -450,29 +451,29 @@ fun ChatsListScreen(
                         }
                         2 -> {
                             ListItem(
-                                headlineContent = { Text("Post Job", color = MaterialTheme.colorScheme.onSurface) },
-                                leadingContent = { Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onSurface) },
-                                modifier = Modifier.clickable {
-                                    showTopMoreSheet = false
-                                    navController.navigate(Screen.PostJob.route)
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                            ListItem(
-                                headlineContent = { Text("Applications", color = MaterialTheme.colorScheme.onSurface) },
-                                leadingContent = { Icon(Icons.AutoMirrored.Filled.Assignment, null, tint = MaterialTheme.colorScheme.onSurface) },
-                                modifier = Modifier.clickable {
-                                    showTopMoreSheet = false
-                                    navController.navigate(Screen.Applications.route)
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-                            )
-                            ListItem(
-                                headlineContent = { Text("Job Profile", color = MaterialTheme.colorScheme.onSurface) },
-                                leadingContent = { Icon(Icons.Default.Work, null, tint = MaterialTheme.colorScheme.onSurface) },
+                                headlineContent = { Text("My Posts", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) },
+                                leadingContent = { Icon(Icons.Default.EditNote, null, tint = Color(0xFF00B4D8)) },
                                 modifier = Modifier.clickable { 
                                     showTopMoreSheet = false
-                                    navController.navigate(Screen.JobProfile.route) 
+                                    navController.navigate(Screen.MyNearbyPosts.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                            ListItem(
+                                headlineContent = { Text("Message Requests", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) },
+                                leadingContent = { Icon(Icons.Default.MarkEmailUnread, null, tint = Color(0xFF00B4D8)) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.ChatRequests.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
+                            ListItem(
+                                headlineContent = { Text("Switch Location / Area", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) },
+                                leadingContent = { Icon(Icons.Default.Place, null, tint = Color(0xFF00B4D8)) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    openNearbyCityPickerTrigger++
                                 },
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
@@ -693,7 +694,8 @@ fun ChatsListScreen(
                         2 -> {
                             com.tpsk.tj.chat.nearby.ui.NearbyTabScreen(
                                 navController = navController,
-                                bottomPadding = bottomPadding
+                                bottomPadding = bottomPadding,
+                                showCityPickerTrigger = openNearbyCityPickerTrigger
                             )
                         }
                         3 -> {

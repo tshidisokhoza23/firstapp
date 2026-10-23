@@ -50,6 +50,7 @@ import com.tpsk.tj.ui.navigation.Screen
 fun NearbyTabScreen(
     navController: NavController,
     bottomPadding: Dp = 0.dp,
+    showCityPickerTrigger: Int = 0,
     nearbyViewModel: NearbyViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel()
 ) {
@@ -61,6 +62,12 @@ fun NearbyTabScreen(
     var showCityPickerSheet by remember { mutableStateOf(false) }
     var showNearbyDrawerSheet by remember { mutableStateOf(false) }
     var chatRequestPostTarget by remember { mutableStateOf<NearbyPost?>(null) }
+
+    LaunchedEffect(showCityPickerTrigger) {
+        if (showCityPickerTrigger > 0) {
+            showCityPickerSheet = true
+        }
+    }
 
     val authorName = remember(currentUser) {
         currentUser?.displayName?.ifBlank { currentUser?.username }?.ifBlank { "You" } ?: "You"
@@ -132,49 +139,23 @@ fun NearbyTabScreen(
                         .fillMaxWidth()
                         .padding(top = 16.dp, bottom = 12.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                    // Radar Badge Icon (Centered & clean)
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF0F2B36)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        IconButton(onClick = { showNearbyDrawerSheet = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Menu",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        // Radar Badge Icon
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF0F2B36)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Radar,
-                                contentDescription = "Radar",
-                                tint = Color(0xFF00B4D8),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-
-                        IconButton(onClick = {
-                            navController.navigate(Screen.MyNearbyPosts.route)
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.EditNote,
-                                contentDescription = "My Posts",
-                                tint = Color(0xFF00B4D8)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.Radar,
+                            contentDescription = "Radar",
+                            tint = Color(0xFF00B4D8),
+                            modifier = Modifier.size(28.dp)
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     Text(
                         text = "Nearby",
