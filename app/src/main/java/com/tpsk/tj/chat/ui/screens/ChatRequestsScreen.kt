@@ -39,6 +39,12 @@ fun ChatRequestsScreen(
 ) {
     val context = LocalContext.current
     val chatRequests by nearbyViewModel.chatRequests.collectAsState()
+    val uiState by nearbyViewModel.uiState.collectAsState()
+    var respondingId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        nearbyViewModel.refreshChatRequests()
+    }
 
     Scaffold(
         topBar = {
@@ -54,7 +60,19 @@ fun ChatRequestsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        if (chatRequests.isEmpty()) {
+        if (uiState.requestsError != null && chatRequests.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(uiState.requestsError ?: "Could not load requests", textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = { nearbyViewModel.refreshChatRequests() }) { Text("Retry") }
+                }
+            }
+        } else if (uiState.requestsLoading && chatRequests.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (chatRequests.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -96,19 +114,50 @@ fun ChatRequestsScreen(
                     ChatRequestItemCard(
                         request = req,
                         onAccept = {
-                            nearbyViewModel.respondChatRequest(req.id, true)
-                            Toast.makeText(context, "Request accepted!", Toast.LENGTH_SHORT).show()
-                            navController.navigate(
-                                Screen.Chat.createRoute(
-                                    chatId = req.senderId.ifBlank { "chat_${req.id}" },
-                                    type = "direct",
-                                    displayName = req.senderName
-                                )
+                            if (respondingId == null) {
+                            respondingId = req.id
+                            nearbyViewModel.respondChatRequest(
+                                req.id,
+                                true,
+                                onSuccess = { senderId ->
+                                    respondingId = null
+                                    val target = senderId.ifBlank { req.senderId }
+                                    if (target.isBlank()) {
+                                        Toast.makeText(context, "Could not open the chat", Toast.LENGTH_LONG).show()
+                                        return@respondChatRequest
+                                    }
+                                    Toast.makeText(context, "Request accepted", Toast.LENGTH_SHORT).show()
+                                    navController.navigate(
+                                        Screen.Chat.createRoute(
+                                            chatId = target,
+                                            type = "initiate",
+                                            displayName = req.senderName
+                                        )
+                                    )
+                                },
+                                onError = { err ->
+                                    respondingId = null
+                                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                }
                             )
+                            }
                         },
                         onDecline = {
-                            nearbyViewModel.respondChatRequest(req.id, false)
-                            Toast.makeText(context, "Request declined", Toast.LENGTH_SHORT).show()
+                            if (respondingId == null) {
+                            respondingId = req.id
+                            nearbyViewModel.respondChatRequest(
+                                req.id,
+                                false,
+                                onSuccess = {
+                                    respondingId = null
+                                    Toast.makeText(context, "Request declined", Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { err ->
+                                    respondingId = null
+                                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                }
+                            )
+                            }
                         }
                     )
                 }

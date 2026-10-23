@@ -51,7 +51,9 @@ fun DiscussionThreadScreen(
     authorDistance: String,
     authorTime: String,
     postContent: String,
+    authorId: String = "",
     onBack: () -> Unit,
+    onOpenProfile: (String) -> Unit = {},
     nearbyViewModel: NearbyViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel()
 ) {
@@ -98,7 +100,7 @@ fun DiscussionThreadScreen(
 
     val resolvedSubtitle = remember(postSubtitle, participantCount) {
         if (postSubtitle.contains("participants") || postSubtitle.contains("Comments")) postSubtitle
-        else "${postSubtitle.ifBlank { "Braamfontein" }} • $participantCount participants"
+        else "${postSubtitle.ifBlank { "Nearby" }} • $participantCount participants"
     }
 
     Scaffold(
@@ -171,11 +173,25 @@ fun DiscussionThreadScreen(
                             onDismissRequest = { showOverflowMenu = false }
                         ) {
                             DropdownMenuItem(
+                                text = { Text("View Profile") },
+                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    if (authorId.isBlank()) {
+                                        Toast.makeText(context, "Profile is not available for this post", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        onOpenProfile(authorId)
+                                    }
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("Report Thread") },
                                 leadingIcon = { Icon(Icons.Default.Flag, contentDescription = null) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    Toast.makeText(context, "Thread reported", Toast.LENGTH_SHORT).show()
+                                    nearbyViewModel.reportPost(postId)
+                                    Toast.makeText(context, "Thread reported and hidden", Toast.LENGTH_SHORT).show()
+                                    onBack()
                                 }
                             )
                             DropdownMenuItem(
@@ -183,8 +199,13 @@ fun DiscussionThreadScreen(
                                 leadingIcon = { Icon(Icons.Default.Block, contentDescription = null) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    Toast.makeText(context, "Author blocked", Toast.LENGTH_SHORT).show()
-                                    onBack()
+                                    if (authorId.isBlank()) {
+                                        Toast.makeText(context, "Could not identify the author", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        nearbyViewModel.blockUser(authorId)
+                                        Toast.makeText(context, "Author blocked", Toast.LENGTH_SHORT).show()
+                                        onBack()
+                                    }
                                 }
                             )
                         }

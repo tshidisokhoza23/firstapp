@@ -178,7 +178,7 @@ fun NearbyTabScreen(
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.clickable { showCityPickerSheet = true }
+                        modifier = Modifier.clickable { showRadiusPickerSheet = true }
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
@@ -316,6 +316,11 @@ fun NearbyTabScreen(
                             post = post,
                             currentUserAvatarUrl = currentUser?.avatarUrl,
                             currentUserId = authorId,
+                            onAuthorClick = {
+                                if (post.userId.isNotBlank()) {
+                                    navController.navigate(Screen.UserProfile.createRoute(post.userId))
+                                }
+                            },
                             onLike = { nearbyViewModel.toggleLike(post.id) },
                             onReply = {
                                 navController.navigate(
@@ -326,7 +331,8 @@ fun NearbyTabScreen(
                                         authorName = post.authorName,
                                         authorDistance = "${post.distanceKm} km away",
                                         authorTime = formatTwitterTime(post.createdAt.toString()),
-                                        postContent = post.content
+                                        postContent = post.content,
+                                        authorId = post.userId
                                     )
                                 )
                             },
@@ -404,12 +410,50 @@ fun NearbyTabScreen(
         )
     }
 
+    if (showRadiusPickerSheet) {
+        AlertDialog(
+            onDismissRequest = { showRadiusPickerSheet = false },
+            title = { Text("Nearby range") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(5, 10, 25, 50).forEach { km ->
+                        TextButton(
+                            onClick = {
+                                nearbyViewModel.setRadius(km)
+                                showRadiusPickerSheet = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (uiState.radiusKm == km) "$km km (current)" else "$km km",
+                                fontWeight = if (uiState.radiusKm == km) FontWeight.Bold else FontWeight.Normal,
+                                color = Color(0xFF00B4D8)
+                            )
+                        }
+                    }
+                    TextButton(
+                        onClick = {
+                            showRadiusPickerSheet = false
+                            showCityPickerSheet = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Change area")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRadiusPickerSheet = false }) { Text("Close") }
+            }
+        )
+    }
+
     if (showCityPickerSheet) {
         AreaPickerSheet(
-            currentArea = uiState.coarseAreaName,
+            viewModel = nearbyViewModel,
+            currentArea = uiState.selectedCity ?: uiState.coarseAreaName,
             onDismiss = { showCityPickerSheet = false },
-            onAreaSelected = { city ->
-                nearbyViewModel.setSelectedCity(city)
+            onAreaSelected = {
                 showCityPickerSheet = false
             }
         )
@@ -429,6 +473,9 @@ fun NearbyTabScreen(
                     onSuccess = {
                         chatRequestPostTarget = null
                         Toast.makeText(context, "Chat request sent to ${post.authorName}!", Toast.LENGTH_LONG).show()
+                    },
+                    onError = { err ->
+                        Toast.makeText(context, err, Toast.LENGTH_LONG).show()
                     }
                 )
             }
@@ -620,6 +667,7 @@ fun NearbyPostCard(
     post: NearbyPost,
     currentUserAvatarUrl: String?,
     currentUserId: String,
+    onAuthorClick: () -> Unit = {},
     onLike: () -> Unit,
     onReply: () -> Unit,
     onRequestChat: () -> Unit,
@@ -649,7 +697,8 @@ fun NearbyPostCard(
                         contentDescription = post.authorName,
                         modifier = Modifier
                             .size(42.dp)
-                            .clip(CircleShape),
+                            .clip(CircleShape)
+                            .clickable(onClick = onAuthorClick),
                         contentScale = ContentScale.Crop
                     )
                 } else {
@@ -657,7 +706,8 @@ fun NearbyPostCard(
                         modifier = Modifier
                             .size(42.dp)
                             .clip(CircleShape)
-                            .background(post.authorAvatarColor),
+                            .background(post.authorAvatarColor)
+                            .clickable(onClick = onAuthorClick),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -671,7 +721,7 @@ fun NearbyPostCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).clickable(onClick = onAuthorClick)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = post.authorName,

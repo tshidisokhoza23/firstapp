@@ -134,7 +134,7 @@ sealed class Screen(val route: String) {
             "news_webview?url=${android.net.Uri.encode(url)}&title=${android.net.Uri.encode(title)}&source=${android.net.Uri.encode(source)}"
     }
     object Events : Screen("events")
-    object DiscussionThread : Screen("discussion_thread?postId={postId}&postTitle={postTitle}&postSubtitle={postSubtitle}&authorName={authorName}&authorDistance={authorDistance}&authorTime={authorTime}&postContent={postContent}") {
+    object DiscussionThread : Screen("discussion_thread?postId={postId}&postTitle={postTitle}&postSubtitle={postSubtitle}&authorName={authorName}&authorDistance={authorDistance}&authorTime={authorTime}&postContent={postContent}&authorId={authorId}") {
         fun createRoute(
             postId: String,
             postTitle: String = "",
@@ -142,8 +142,9 @@ sealed class Screen(val route: String) {
             authorName: String = "",
             authorDistance: String = "",
             authorTime: String = "",
-            postContent: String = ""
-        ) = "discussion_thread?postId=${android.net.Uri.encode(postId)}&postTitle=${android.net.Uri.encode(postTitle)}&postSubtitle=${android.net.Uri.encode(postSubtitle)}&authorName=${android.net.Uri.encode(authorName)}&authorDistance=${android.net.Uri.encode(authorDistance)}&authorTime=${android.net.Uri.encode(authorTime)}&postContent=${android.net.Uri.encode(postContent)}"
+            postContent: String = "",
+            authorId: String = ""
+        ) = "discussion_thread?postId=${android.net.Uri.encode(postId)}&postTitle=${android.net.Uri.encode(postTitle)}&postSubtitle=${android.net.Uri.encode(postSubtitle)}&authorName=${android.net.Uri.encode(authorName)}&authorDistance=${android.net.Uri.encode(authorDistance)}&authorTime=${android.net.Uri.encode(authorTime)}&postContent=${android.net.Uri.encode(postContent)}&authorId=${android.net.Uri.encode(authorId)}"
     }
     object CreateNearbyPost : Screen("create_nearby_post?area={area}") {
         fun createRoute(area: String = "") = "create_nearby_post?area=${android.net.Uri.encode(area)}"

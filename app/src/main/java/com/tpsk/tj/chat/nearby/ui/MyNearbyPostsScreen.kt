@@ -4,6 +4,7 @@ package com.tpsk.tj.chat.nearby.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -33,15 +34,15 @@ import com.tpsk.tj.chat.nearby.ui.viewmodel.NearbyViewModel
 @Composable
 fun MyNearbyPostsScreen(
     onBack: () -> Unit,
+    onOpenPost: (NearbyPost) -> Unit = {},
     nearbyViewModel: NearbyViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val currentUser = LocalCurrentUser.current
-    val currentUserId = currentUser?.id.orEmpty()
     val uiState by nearbyViewModel.uiState.collectAsState()
+    val myPosts = uiState.myPosts
 
-    val myPosts = remember(uiState.posts, currentUserId) {
-        nearbyViewModel.getMyPosts(currentUserId)
+    LaunchedEffect(Unit) {
+        nearbyViewModel.loadMyPosts()
     }
 
     var postToDelete by remember { mutableStateOf<NearbyPost?>(null) }
@@ -61,7 +62,19 @@ fun MyNearbyPostsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        if (myPosts.isEmpty()) {
+        if (uiState.myPostsLoading && myPosts.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF00B4D8))
+            }
+        } else if (uiState.myPostsError != null && myPosts.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(uiState.myPostsError ?: "Could not load your posts", textAlign = TextAlign.Center)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(onClick = { nearbyViewModel.loadMyPosts() }) { Text("Retry") }
+                }
+            }
+        } else if (myPosts.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -102,10 +115,12 @@ fun MyNearbyPostsScreen(
                 items(myPosts, key = { it.id }) { post ->
                     MyPostCard(
                         post = post,
+                        onOpen = { onOpenPost(post) },
                         onDelete = { postToDelete = post },
                         onToggleResolved = {
-                            nearbyViewModel.markPostResolved(post.id, !post.isResolved)
-                            Toast.makeText(context, if (!post.isResolved) "Marked as Resolved" else "Marked as Active", Toast.LENGTH_SHORT).show()
+                            nearbyViewModel.markPostResolved(post.id, !post.isResolved) { err ->
+                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                            }
                         },
                         onEdit = { postToEdit = post }
                     )
@@ -123,9 +138,16 @@ fun MyNearbyPostsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        nearbyViewModel.deletePost(post.id)
-                        postToDelete = null
-                        Toast.makeText(context, "Post deleted", Toast.LENGTH_SHORT).show()
+                        nearbyViewModel.deletePost(
+                            post.id,
+                            onSuccess = {
+                                postToDelete = null
+                                Toast.makeText(context, "Post deleted", Toast.LENGTH_SHORT).show()
+                            },
+                            onError = { err ->
+                                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                            }
+                        )
                     }
                 ) {
                     Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold)
@@ -142,7 +164,6 @@ fun MyNearbyPostsScreen(
     // Edit Post Dialog
     postToEdit?.let { post ->
         var editContent by remember { mutableStateOf(post.content) }
-        var editArea by remember { mutableStateOf(post.coarseAreaName) }
 
         AlertDialog(
             onDismissRequest = { postToEdit = null },
@@ -156,13 +177,11 @@ fun MyNearbyPostsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 5
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = editArea,
-                        onValueChange = { editArea = it },
-                        label = { Text("Location Tag") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = post.coarseAreaName,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
@@ -170,9 +189,18 @@ fun MyNearbyPostsScreen(
                 TextButton(
                     onClick = {
                         if (editContent.isNotBlank()) {
-                            nearbyViewModel.editPost(post.id, editContent, editArea)
-                            postToEdit = null
-                            Toast.makeText(context, "Post updated", Toast.LENGTH_SHORT).show()
+                            nearbyViewModel.editPost(
+                                post.id,
+                                editContent,
+                                post.coarseAreaName,
+                                onSuccess = {
+                                    postToEdit = null
+                                    Toast.makeText(context, "Post updated", Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { err ->
+                                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                                }
+                            )
                         }
                     }
                 ) {
@@ -191,6 +219,7 @@ fun MyNearbyPostsScreen(
 @Composable
 fun MyPostCard(
     post: NearbyPost,
+    onOpen: () -> Unit,
     onDelete: () -> Unit,
     onToggleResolved: () -> Unit,
     onEdit: () -> Unit
@@ -199,7 +228,7 @@ fun MyPostCard(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -3,9 +3,15 @@ package com.tpsk.tj.chat.nearby.data
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
+import com.tpsk.tj.chat.nearby.data.api.ApiChatRequest
+import com.tpsk.tj.chat.nearby.data.api.CreateChatRequestBody
 import com.tpsk.tj.chat.nearby.data.api.CreateNearbyPostRequest
 import com.tpsk.tj.chat.nearby.data.api.CreateNearbyReplyRequest
 import com.tpsk.tj.chat.nearby.data.api.NearbyApi
+import com.tpsk.tj.chat.nearby.data.api.ResolveNearbyPostRequest
+import com.tpsk.tj.chat.nearby.data.api.RespondChatRequestBody
+import com.tpsk.tj.chat.nearby.data.api.UpdateNearbyPostRequest
+import com.tpsk.tj.chat.nearby.model.AreaPlace
 import com.tpsk.tj.chat.nearby.model.NearbyChatRequest
 import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
@@ -35,8 +41,8 @@ class NearbyRepository @Inject constructor(
     private val chatRequests = MutableStateFlow<List<NearbyChatRequest>>(emptyList())
 
     fun saveCoarseLocation(lat: Double, lng: Double, areaName: String) {
-        val roundedLat = (lat * 100).roundToInt() / 100.0
-        val roundedLng = (lng * 100).roundToInt() / 100.0
+        val roundedLat = (lat * 1000).roundToInt() / 1000.0
+        val roundedLng = (lng * 1000).roundToInt() / 1000.0
         prefs.edit()
             .putFloat("coarse_lat", roundedLat.toFloat())
             .putFloat("coarse_lng", roundedLng.toFloat())
@@ -98,6 +104,7 @@ class NearbyRepository @Inject constructor(
                         likeCount = api.like_count,
                         replyCount = maxOf(api.reply_count, api.replies?.size ?: 0),
                         isLiked = api.is_liked,
+                        isResolved = api.is_resolved,
                         createdAt = parseIsoTime(api.created_at),
                         replies = api.replies?.map { r ->
                             NearbyReply(
@@ -127,6 +134,26 @@ class NearbyRepository @Inject constructor(
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Network error fetching nearby posts", localPosts.value))
+        }
+    }
+
+    suspend fun searchPostedAreas(query: String, lat: Double, lng: Double): List<AreaPlace> {
+        val response = if (query.isBlank()) {
+            nearbyApi.suggestAreas(
+                lat = lat.takeIf { it != 0.0 },
+                lng = lng.takeIf { it != 0.0 }
+            )
+        } else {
+            nearbyApi.searchAreas(query.trim())
+        }
+        if (!response.isSuccessful) error("Could not load posted areas (${response.code()})")
+        return response.body()?.areas.orEmpty().mapNotNull { area ->
+            val label = area.display_name.ifBlank {
+                if (area.town.isBlank() || area.town.equals(area.name, true)) area.name else "${area.name}, ${area.town}"
+            }.trim()
+            if (label.isBlank() || label.equals("Nearby", true) || label.equals("Braamfontein", true)) return@mapNotNull null
+            if (area.latitude == 0.0 || area.longitude == 0.0) return@mapNotNull null
+            AreaPlace(label, area.latitude, area.longitude, area.post_count)
         }
     }
 
@@ -219,54 +246,141 @@ class NearbyRepository @Inject constructor(
         }
     }
 
-    fun getMyPosts(currentUserId: String): List<NearbyPost> {
-        return localPosts.value.filter { it.userId == currentUserId || it.id.startsWith("local_") }
-    }
-
-    fun deletePost(postId: String) {
-        localPosts.value = localPosts.value.filterNot { it.id == postId }
-    }
-
-    fun markPostResolved(postId: String, isResolved: Boolean) {
-        localPosts.value = localPosts.value.map { post ->
-            if (post.id == postId) post.copy(isResolved = isResolved) else post
+    fun getMyPosts(): Flow<Resource<List<NearbyPost>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.getMyPosts()
+            if (response.isSuccessful && response.body() != null) {
+                val mapped = response.body()!!.posts.map { api ->
+                    NearbyPost(
+                        id = api.id,
+                        userId = api.user_id,
+                        authorName = api.author_name,
+                        authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(api.author_avatar_url),
+                        content = api.content,
+                        coarseAreaName = api.area_name,
+                        latitude = api.latitude,
+                        longitude = api.longitude,
+                        likeCount = api.like_count,
+                        replyCount = api.reply_count,
+                        isResolved = api.is_resolved,
+                        createdAt = parseIsoTime(api.created_at)
+                    )
+                }
+                emit(Resource.Success(mapped))
+            } else {
+                emit(Resource.Error(response.errorText("Could not load your nearby posts")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error loading your posts"))
         }
     }
 
-    fun editPost(postId: String, newContent: String, newArea: String) {
-        localPosts.value = localPosts.value.map { post ->
-            if (post.id == postId) post.copy(content = newContent, coarseAreaName = newArea) else post
+    fun deletePost(postId: String): Flow<Resource<Unit>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.deletePost(postId)
+            if (response.isSuccessful) {
+                localPosts.value = localPosts.value.filterNot { it.id == postId }
+                emit(Resource.Success(Unit))
+            } else {
+                emit(Resource.Error(response.errorText("Could not delete post")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error deleting post"))
         }
     }
 
-    fun sendChatRequest(
-        postId: String,
-        recipientId: String,
-        recipientName: String,
-        snippet: String,
-        inquiryMessage: String,
-        senderId: String,
-        senderName: String,
-        senderAvatarUrl: String? = null
-    ) {
-        val newReq = NearbyChatRequest(
-            id = "req_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}",
-            senderId = senderId,
-            senderName = senderName,
-            senderAvatarUrl = senderAvatarUrl,
-            recipientId = recipientId,
-            recipientName = recipientName,
-            postReferenceSnippet = snippet,
-            postId = postId,
-            inquiryMessage = inquiryMessage
-        )
-        chatRequests.value = listOf(newReq) + chatRequests.value
+    fun markPostResolved(postId: String, isResolved: Boolean): Flow<Resource<Unit>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.resolvePost(postId, ResolveNearbyPostRequest(isResolved))
+            if (response.isSuccessful) {
+                localPosts.value = localPosts.value.map { post ->
+                    if (post.id == postId) post.copy(isResolved = isResolved) else post
+                }
+                emit(Resource.Success(Unit))
+            } else {
+                emit(Resource.Error(response.errorText("Could not update post")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error updating post"))
+        }
+    }
+
+    fun editPost(postId: String, newContent: String, newArea: String): Flow<Resource<Unit>> = flow {
+        val trimmed = newContent.trim()
+        if (trimmed.isBlank()) {
+            emit(Resource.Error("Post content cannot be empty"))
+            return@flow
+        }
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.updatePost(postId, UpdateNearbyPostRequest(trimmed, newArea.ifBlank { "Nearby" }))
+            if (response.isSuccessful) {
+                localPosts.value = localPosts.value.map { post ->
+                    if (post.id == postId) post.copy(content = trimmed, coarseAreaName = newArea.ifBlank { post.coarseAreaName }) else post
+                }
+                emit(Resource.Success(Unit))
+            } else {
+                emit(Resource.Error(response.errorText("Could not edit post")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error editing post"))
+        }
+    }
+
+    fun sendChatRequest(postId: String, inquiryMessage: String): Flow<Resource<NearbyChatRequest>> = flow {
+        val trimmed = inquiryMessage.trim()
+        if (trimmed.isBlank()) {
+            emit(Resource.Error("Message cannot be empty"))
+            return@flow
+        }
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.createChatRequest(CreateChatRequestBody(postId, trimmed))
+            if (response.isSuccessful && response.body() != null) {
+                emit(Resource.Success(response.body()!!.toModel()))
+            } else {
+                emit(Resource.Error(response.errorText("Could not send chat request")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error sending request"))
+        }
+    }
+
+    fun refreshChatRequests(): Flow<Resource<List<NearbyChatRequest>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.getChatRequests()
+            if (response.isSuccessful && response.body() != null) {
+                val mapped = response.body()!!.requests.map { it.toModel() }
+                chatRequests.value = mapped
+                emit(Resource.Success(mapped))
+            } else {
+                emit(Resource.Error(response.errorText("Could not load chat requests")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error loading requests"))
+        }
     }
 
     fun getChatRequests(): Flow<List<NearbyChatRequest>> = chatRequests
 
-    fun respondChatRequest(requestId: String, accept: Boolean) {
-        chatRequests.value = chatRequests.value.filterNot { it.id == requestId }
+    fun respondChatRequest(requestId: String, accept: Boolean): Flow<Resource<String>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = nearbyApi.respondChatRequest(requestId, RespondChatRequestBody(accept))
+            if (response.isSuccessful) {
+                val senderId = response.body()?.get("sender_id").orEmpty()
+                chatRequests.value = chatRequests.value.filterNot { it.id == requestId }
+                emit(Resource.Success(senderId))
+            } else {
+                emit(Resource.Error(response.errorText("Could not respond to request")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Network error responding to request"))
+        }
     }
 
     fun likePost(postId: String): Flow<Resource<NearbyPost>> = flow {
@@ -387,6 +501,30 @@ class NearbyRepository @Inject constructor(
         } catch (e: Exception) {
             System.currentTimeMillis()
         }
+    }
+}
+
+private fun ApiChatRequest.toModel() = NearbyChatRequest(
+    id = id,
+    senderId = sender_id,
+    senderName = sender_name.ifBlank { "Someone nearby" },
+    senderAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(sender_avatar_url),
+    recipientId = recipient_id,
+    recipientName = recipient_name,
+    postReferenceSnippet = post_reference_snippet,
+    postId = post_id,
+    inquiryMessage = inquiry_message,
+    createdAt = parseIsoTime(created_at)
+)
+
+private fun parseIsoTime(iso: String?): Long {
+    if (iso.isNullOrBlank()) return System.currentTimeMillis()
+    return try {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        sdf.timeZone = TimeZone.getTimeZone("UTC")
+        sdf.parse(iso)?.time ?: System.currentTimeMillis()
+    } catch (_: Exception) {
+        System.currentTimeMillis()
     }
 }
 

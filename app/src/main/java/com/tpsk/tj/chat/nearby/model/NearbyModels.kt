@@ -37,6 +37,13 @@ data class NearbyReply(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+data class AreaPlace(
+    val displayName: String,
+    val latitude: Double,
+    val longitude: Double,
+    val postCount: Int = 0
+)
+
 data class NearbyChatRequest(
     val id: String,
     val senderId: String,

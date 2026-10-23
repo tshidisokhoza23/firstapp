@@ -2,6 +2,7 @@
 
 package com.tpsk.tj.chat.nearby.ui
 
+import android.Manifest
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -10,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -32,7 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tpsk.tj.LocalCurrentUser
+import com.tpsk.tj.chat.nearby.model.AreaPlace
 import com.tpsk.tj.chat.nearby.ui.viewmodel.NearbyViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun CreateNearbyPostScreen(
@@ -287,6 +291,7 @@ fun CreateNearbyPostScreen(
 
     if (showAreaPickerSheet) {
         AreaPickerSheet(
+            viewModel = nearbyViewModel,
             currentArea = selectedArea,
             onDismiss = { showAreaPickerSheet = false },
             onAreaSelected = { area ->
@@ -299,21 +304,40 @@ fun CreateNearbyPostScreen(
 
 @Composable
 fun AreaPickerSheet(
+    viewModel: NearbyViewModel,
     currentArea: String,
     onDismiss: () -> Unit,
     onAreaSelected: (String) -> Unit
 ) {
-    val areas = remember {
-        listOf(
-            "Ecaleni, Tembisa", "Mqantsa, Tembisa", "Sangweni, Tembisa", "Birchfield",
-            "Vaal", "Soweto", "Midrand", "Johannesburg", "Pretoria", "Centurion", "Kempton Park", "Benoni"
-        )
-    }
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var locating by remember { mutableStateOf(false) }
 
-    val filtered = remember(searchQuery) {
-        if (searchQuery.isBlank()) areas
-        else areas.filter { it.contains(searchQuery, ignoreCase = true) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (!granted) {
+            Toast.makeText(context, "Location permission is needed for your current area", Toast.LENGTH_LONG).show()
+            return@rememberLauncherForActivityResult
+        }
+        locating = true
+        viewModel.useDeviceLocation { area ->
+            locating = false
+            if (area.isNullOrBlank()) {
+                Toast.makeText(context, "Could not read your suburb from GPS", Toast.LENGTH_LONG).show()
+            } else {
+                onAreaSelected(area)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.loadPostedAreas("")
+    }
+    LaunchedEffect(searchQuery) {
+        delay(250)
+        viewModel.loadPostedAreas(searchQuery)
     }
 
     ModalBottomSheet(
@@ -332,13 +356,18 @@ fun AreaPickerSheet(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Text(
+                text = "Suggestions come from places people have posted, not a preset list.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
 
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search town or township...") },
+                placeholder = { Text("Search posted areas...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -352,16 +381,38 @@ fun AreaPickerSheet(
                 color = Color(0xFF00B4D8).copy(alpha = 0.12f),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onAreaSelected("Ecaleni, Tembisa") }
+                    .clickable(enabled = !locating) {
+                        if (viewModel.hasLocationPermission()) {
+                            locating = true
+                            viewModel.useDeviceLocation { area ->
+                                locating = false
+                                if (area.isNullOrBlank()) {
+                                    Toast.makeText(context, "Could not read your suburb from GPS", Toast.LENGTH_LONG).show()
+                                } else {
+                                    onAreaSelected(area)
+                                }
+                            }
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        }
+                    }
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(14.dp)
                 ) {
-                    Icon(Icons.Default.MyLocation, contentDescription = null, tint = Color(0xFF00B4D8))
+                    if (locating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFF00B4D8)
+                        )
+                    } else {
+                        Icon(Icons.Default.MyLocation, contentDescription = null, tint = Color(0xFF00B4D8))
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Use Current Location",
+                        text = if (locating) "Reading your location..." else "Use Current Location",
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF00B4D8)
                     )
@@ -370,30 +421,76 @@ fun AreaPickerSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            filtered.forEach { area ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onAreaSelected(area) }
-                        .padding(vertical = 12.dp, horizontal = 4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Place,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+            when {
+                uiState.areasError != null && uiState.postedAreas.isEmpty() -> {
                     Text(
-                        text = area,
-                        fontSize = 15.sp,
-                        fontWeight = if (area == currentArea) FontWeight.Bold else FontWeight.Normal,
-                        color = if (area == currentArea) Color(0xFF00B4D8) else MaterialTheme.colorScheme.onSurface
+                        text = uiState.areasError ?: "Could not load posted areas",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(vertical = 12.dp)
                     )
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                uiState.areasLoading && uiState.postedAreas.isEmpty() -> {
+                    CircularProgressIndicator(modifier = Modifier.padding(16.dp), strokeWidth = 2.dp)
+                }
+                uiState.postedAreas.isEmpty() -> {
+                    Text(
+                        text = if (searchQuery.isBlank()) {
+                            "No posted areas near you yet. Use current location, then post — that place will show up here."
+                        } else {
+                            "No one has posted from \"$searchQuery\" yet."
+                        },
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                }
+                else -> {
+                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        items(uiState.postedAreas, key = { "${it.displayName}-${it.latitude}-${it.longitude}" }) { area ->
+                            PostedAreaRow(area, currentArea) {
+                                viewModel.selectPostedArea(area)
+                                onAreaSelected(area.displayName)
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun PostedAreaRow(area: AreaPlace, currentArea: String, onClick: () -> Unit) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 12.dp, horizontal = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Place,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = area.displayName,
+                    fontSize = 15.sp,
+                    fontWeight = if (area.displayName == currentArea) FontWeight.Bold else FontWeight.Normal,
+                    color = if (area.displayName == currentArea) Color(0xFF00B4D8) else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = if (area.postCount == 1) "1 post" else "${area.postCount} posts",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     }
 }

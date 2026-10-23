@@ -187,6 +187,7 @@ fun AppNavigation(
             val authorDistance = backStackEntry.arguments?.getString("authorDistance") ?: ""
             val authorTime = backStackEntry.arguments?.getString("authorTime") ?: ""
             val postContent = backStackEntry.arguments?.getString("postContent") ?: ""
+            val authorId = backStackEntry.arguments?.getString("authorId") ?: ""
 
             com.tpsk.tj.chat.nearby.ui.DiscussionThreadScreen(
                 postId = postId,
@@ -196,7 +197,11 @@ fun AppNavigation(
                 authorDistance = authorDistance,
                 authorTime = authorTime,
                 postContent = postContent,
-                onBack = { navController.popBackStack() }
+                authorId = authorId,
+                onBack = { navController.popBackStack() },
+                onOpenProfile = { userId ->
+                    if (userId.isNotBlank()) navController.navigate(Screen.UserProfile.createRoute(userId))
+                }
             )
         }
 
@@ -211,7 +216,21 @@ fun AppNavigation(
 
         composable(Screen.MyNearbyPosts.route) {
             com.tpsk.tj.chat.nearby.ui.MyNearbyPostsScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onOpenPost = { post ->
+                    navController.navigate(
+                        Screen.DiscussionThread.createRoute(
+                            postId = post.id,
+                            postTitle = "Your Nearby Post",
+                            postSubtitle = post.coarseAreaName,
+                            authorName = post.authorName,
+                            authorDistance = "You",
+                            authorTime = "",
+                            postContent = post.content,
+                            authorId = post.userId
+                        )
+                    )
+                }
             )
         }
 

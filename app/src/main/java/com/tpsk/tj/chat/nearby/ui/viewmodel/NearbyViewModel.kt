@@ -14,6 +14,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.tpsk.tj.chat.nearby.data.NearbyRepository
+import com.tpsk.tj.chat.nearby.model.AreaPlace
 import com.tpsk.tj.chat.nearby.model.NearbyChatRequest
 import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
@@ -43,11 +44,20 @@ data class NearbyUiState(
     val hasLocationFix: Boolean = false,
     val radiusKm: Int = 10,
     val selectedCity: String? = null,
+    val areaPinned: Boolean = false,
+    val postedAreas: List<AreaPlace> = emptyList(),
+    val areasLoading: Boolean = false,
+    val areasError: String? = null,
     val emptyReason: String? = null,
     val errorMessage: String? = null,
     val isCachedLocation: Boolean = false,
     val activeThreadPost: NearbyPost? = null,
-    val showCreatePostSheet: Boolean = false
+    val showCreatePostSheet: Boolean = false,
+    val myPosts: List<NearbyPost> = emptyList(),
+    val myPostsLoading: Boolean = false,
+    val myPostsError: String? = null,
+    val requestsLoading: Boolean = false,
+    val requestsError: String? = null
 )
 
 @HiltViewModel
@@ -63,6 +73,7 @@ class NearbyViewModel @Inject constructor(
 
     init {
         refreshLocationAndFeed()
+        refreshChatRequests()
         viewModelScope.launch {
             repository.getChatRequests().collect { list ->
                 (chatRequests as MutableStateFlow).value = list
@@ -72,6 +83,11 @@ class NearbyViewModel @Inject constructor(
 
     fun refreshLocationAndFeed() {
         viewModelScope.launch {
+            val pinned = _uiState.value
+            if (pinned.areaPinned && !pinned.selectedCity.isNullOrBlank() && pinned.hasLocationFix) {
+                loadFeed(pinned.userLat, pinned.userLng, pinned.radiusKm, pinned.selectedCity)
+                return@launch
+            }
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             val hasPermission = checkPermission()
             val gpsOn = isGpsProviderEnabled()
@@ -302,9 +318,78 @@ class NearbyViewModel @Inject constructor(
     }
 
     fun setSelectedCity(city: String?) {
-        _uiState.value = _uiState.value.copy(selectedCity = city?.takeIf { it.isNotBlank() })
+        _uiState.value = _uiState.value.copy(
+            selectedCity = city?.takeIf { it.isNotBlank() },
+            areaPinned = false
+        )
         refreshLocationAndFeed()
     }
+
+    fun selectPostedArea(area: AreaPlace) {
+        _uiState.value = _uiState.value.copy(
+            selectedCity = area.displayName,
+            coarseAreaName = area.displayName,
+            userLat = area.latitude,
+            userLng = area.longitude,
+            hasLocationFix = true,
+            areaPinned = true,
+            isCachedLocation = false
+        )
+        repository.saveCoarseLocation(area.latitude, area.longitude, area.displayName)
+        loadFeed(area.latitude, area.longitude, _uiState.value.radiusKm, area.displayName)
+    }
+
+    fun useDeviceLocation(onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            if (!checkPermission()) {
+                onResult(null)
+                return@launch
+            }
+            _uiState.value = _uiState.value.copy(selectedCity = null, areaPinned = false)
+            val resolved = resolveLocation()
+            if (!resolved.hasFix || resolved.area.equals("Nearby", true)) {
+                _uiState.value = _uiState.value.copy(
+                    hasLocationPermission = true,
+                    hasLocationFix = resolved.hasFix,
+                    coarseAreaName = resolved.area,
+                    userLat = resolved.lat,
+                    userLng = resolved.lng
+                )
+                onResult(null)
+                return@launch
+            }
+            _uiState.value = _uiState.value.copy(
+                hasLocationPermission = true,
+                isGpsEnabled = isGpsProviderEnabled(),
+                coarseAreaName = resolved.area,
+                userLat = resolved.lat,
+                userLng = resolved.lng,
+                hasLocationFix = true,
+                areaPinned = false
+            )
+            loadFeed(resolved.lat, resolved.lng, _uiState.value.radiusKm, null)
+            onResult(resolved.area)
+        }
+    }
+
+    fun loadPostedAreas(query: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(areasLoading = true, areasError = null)
+            val areas = runCatching {
+                repository.searchPostedAreas(query, _uiState.value.userLat, _uiState.value.userLng)
+            }
+            _uiState.value = if (areas.isSuccess) {
+                _uiState.value.copy(postedAreas = areas.getOrDefault(emptyList()), areasLoading = false, areasError = null)
+            } else {
+                _uiState.value.copy(
+                    areasLoading = false,
+                    areasError = areas.exceptionOrNull()?.message ?: "Could not load posted areas"
+                )
+            }
+        }
+    }
+
+    fun hasLocationPermission(): Boolean = checkPermission()
 
     fun toggleLike(postId: String) {
         viewModelScope.launch {
@@ -327,15 +412,40 @@ class NearbyViewModel @Inject constructor(
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            val area = areaName?.takeIf { it.isNotBlank() } ?: _uiState.value.coarseAreaName
+            var area = areaName?.trim().orEmpty().ifBlank { _uiState.value.coarseAreaName }
+            var lat = _uiState.value.userLat
+            var lng = _uiState.value.userLng
+            val placeholder = area.isBlank() ||
+                area.equals("Nearby", true) ||
+                area.equals("Select Area", true) ||
+                area.equals("Braamfontein", true)
+            if (placeholder || lat == 0.0 || lng == 0.0) {
+                if (!checkPermission()) {
+                    onError("Allow location so this post is saved to your real area")
+                    return@launch
+                }
+                _uiState.value = _uiState.value.copy(selectedCity = null, areaPinned = false)
+                val resolved = resolveLocation()
+                if (!resolved.hasFix) {
+                    onError("Turn on location so this post is saved to your real area")
+                    return@launch
+                }
+                area = resolved.area
+                lat = resolved.lat
+                lng = resolved.lng
+            }
+            if (area.equals("Nearby", true) || area.equals("Braamfontein", true) || lat == 0.0 || lng == 0.0) {
+                onError("Could not read your suburb from GPS. Try again with location on.")
+                return@launch
+            }
             repository.createPost(
                 content = content,
                 authorId = authorId,
                 authorName = authorName,
                 authorAvatarUrl = authorAvatarUrl,
                 areaName = area,
-                latitude = _uiState.value.userLat,
-                longitude = _uiState.value.userLng,
+                latitude = lat,
+                longitude = lng,
                 imageUrls = imageUrls
             ).collect { result ->
                 when (result) {
@@ -357,23 +467,76 @@ class NearbyViewModel @Inject constructor(
         }
     }
 
-    fun getMyPosts(userId: String): List<NearbyPost> {
-        return repository.getMyPosts(userId)
+    fun loadMyPosts() {
+        viewModelScope.launch {
+            repository.getMyPosts().collect { result ->
+                when (result) {
+                    is Resource.Loading -> _uiState.value = _uiState.value.copy(myPostsLoading = true, myPostsError = null)
+                    is Resource.Success -> _uiState.value = _uiState.value.copy(
+                        myPostsLoading = false,
+                        myPosts = result.data.orEmpty(),
+                        myPostsError = null
+                    )
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(
+                        myPostsLoading = false,
+                        myPostsError = result.message ?: "Could not load your posts"
+                    )
+                }
+            }
+        }
     }
 
-    fun deletePost(postId: String) {
-        repository.deletePost(postId)
-        refreshLocationAndFeed()
+    fun deletePost(postId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            repository.deletePost(postId).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            myPosts = _uiState.value.myPosts.filterNot { it.id == postId },
+                            posts = _uiState.value.posts.filterNot { it.id == postId }
+                        )
+                        onSuccess()
+                    }
+                    is Resource.Error -> onError(result.message ?: "Could not delete post")
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
-    fun markPostResolved(postId: String, isResolved: Boolean) {
-        repository.markPostResolved(postId, isResolved)
-        refreshLocationAndFeed()
+    fun markPostResolved(postId: String, isResolved: Boolean, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            repository.markPostResolved(postId, isResolved).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            myPosts = _uiState.value.myPosts.map { if (it.id == postId) it.copy(isResolved = isResolved) else it }
+                        )
+                    }
+                    is Resource.Error -> onError(result.message ?: "Could not update post")
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
-    fun editPost(postId: String, newContent: String, newArea: String) {
-        repository.editPost(postId, newContent, newArea)
-        refreshLocationAndFeed()
+    fun editPost(postId: String, newContent: String, newArea: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            repository.editPost(postId, newContent, newArea).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        _uiState.value = _uiState.value.copy(
+                            myPosts = _uiState.value.myPosts.map {
+                                if (it.id == postId) it.copy(content = newContent.trim(), coarseAreaName = newArea.ifBlank { it.coarseAreaName }) else it
+                            }
+                        )
+                        onSuccess()
+                    }
+                    is Resource.Error -> onError(result.message ?: "Could not edit post")
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
     fun sendChatRequest(
@@ -382,24 +545,45 @@ class NearbyViewModel @Inject constructor(
         senderId: String,
         senderName: String,
         senderAvatarUrl: String? = null,
-        onSuccess: () -> Unit
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit = {}
     ) {
-        val snippet = "Re: ${post.content.take(30)} • ${post.coarseAreaName}"
-        repository.sendChatRequest(
-            postId = post.id,
-            recipientId = post.userId,
-            recipientName = post.authorName,
-            snippet = snippet,
-            inquiryMessage = inquiryMessage,
-            senderId = senderId,
-            senderName = senderName,
-            senderAvatarUrl = senderAvatarUrl
-        )
-        onSuccess()
+        viewModelScope.launch {
+            repository.sendChatRequest(post.id, inquiryMessage).collect { result ->
+                when (result) {
+                    is Resource.Success -> onSuccess()
+                    is Resource.Error -> onError(result.message ?: "Could not send request")
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
-    fun respondChatRequest(requestId: String, accept: Boolean) {
-        repository.respondChatRequest(requestId, accept)
+    fun refreshChatRequests() {
+        viewModelScope.launch {
+            repository.refreshChatRequests().collect { result ->
+                when (result) {
+                    is Resource.Loading -> _uiState.value = _uiState.value.copy(requestsLoading = true, requestsError = null)
+                    is Resource.Success -> _uiState.value = _uiState.value.copy(requestsLoading = false, requestsError = null)
+                    is Resource.Error -> _uiState.value = _uiState.value.copy(
+                        requestsLoading = false,
+                        requestsError = result.message ?: "Could not load requests"
+                    )
+                }
+            }
+        }
+    }
+
+    fun respondChatRequest(requestId: String, accept: Boolean, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            repository.respondChatRequest(requestId, accept).collect { result ->
+                when (result) {
+                    is Resource.Success -> onSuccess(result.data.orEmpty())
+                    is Resource.Error -> onError(result.message ?: "Could not respond")
+                    is Resource.Loading -> Unit
+                }
+            }
+        }
     }
 
     fun replyToPost(
