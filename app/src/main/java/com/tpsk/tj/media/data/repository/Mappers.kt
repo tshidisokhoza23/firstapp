@@ -69,12 +69,23 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         isVerifiedAuthor = author?.is_verified ?: false,
         content = apiPost.content ?: apiPost.content_text ?: "",
         mediaUrls = mediaUrlsList,
-        mediaType = if (apiPost.media_type != null && apiPost.media_type.length > 0) {
-            apiPost.media_type
-        } else if (mediaUrlsList.size > 0) {
-            if (MediaUtils.isVideo(mediaUrlsList[0])) "VIDEO" else "IMAGE"
-        } else {
-            "TEXT"
+        mediaType = run {
+            fun isAudioUrl(url: String): Boolean {
+                val lower = url.lowercase()
+                return lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg")
+            }
+            val hasVideo = mediaUrlsList.any { MediaUtils.isVideo(it) }
+            val hasAudio = mediaUrlsList.any { isAudioUrl(it) }
+            val hasImage = mediaUrlsList.any { !MediaUtils.isVideo(it) && !isAudioUrl(it) }
+            val kinds = listOf(hasVideo, hasImage, hasAudio).count { it }
+            when {
+                kinds > 1 -> "MIXED"
+                hasVideo -> "VIDEO"
+                hasAudio -> "AUDIO"
+                hasImage -> "IMAGE"
+                !apiPost.media_type.isNullOrBlank() -> apiPost.media_type
+                else -> "TEXT"
+            }
         },
         altText = apiPost.alt_text,
         timestamp = timestampFormatted,

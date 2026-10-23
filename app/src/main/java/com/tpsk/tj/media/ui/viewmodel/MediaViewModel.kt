@@ -354,9 +354,23 @@ class MediaViewModel @Inject constructor(
 
     fun artistCaption(imageUrl: String, onResult: (String) -> Unit) {
         viewModelScope.launch {
-            if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
-                onResult("Post the photo first, then use AI caption on the uploaded image.")
-                return@launch
+            var hostedUrl = imageUrl
+            if (!hostedUrl.startsWith("http://") && !hostedUrl.startsWith("https://")) {
+                val uri = if (hostedUrl.startsWith("/")) {
+                    android.net.Uri.fromFile(java.io.File(hostedUrl))
+                } else {
+                    android.net.Uri.parse(hostedUrl)
+                }
+                var uploaded: String? = null
+                accountRepository.uploadUri(com.tpsk.tj.common.util.ContextProvider.context, uri, "posts").collect { res ->
+                    if (res is Resource.Success) uploaded = res.data?.url
+                    else if (res is Resource.Error) _toastMessage.value = res.message
+                }
+                if (uploaded.isNullOrBlank()) {
+                    onResult("Could not upload the picture for a caption.")
+                    return@launch
+                }
+                hostedUrl = uploaded!!
             }
             val response = runCatching {
                 studioApi.artistHelper(
@@ -364,7 +378,7 @@ class MediaViewModel @Inject constructor(
                         taskType = "caption_generator",
                         title = "Photo",
                         story = "Write a caption for this image.",
-                        imageUrl = imageUrl
+                        imageUrl = hostedUrl
                     )
                 )
             }.getOrNull()
@@ -410,11 +424,19 @@ class MediaViewModel @Inject constructor(
         parentPostId: String? = null,
         rootPostId: String? = null,
         repostOfId: String? = null,
-        compose: com.tpsk.tj.common.data.api.ComposeMetaDto? = null
+        compose: com.tpsk.tj.common.data.api.ComposeMetaDto? = null,
+        onComplete: ((Boolean) -> Unit)? = null
     ) {
-        if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty()) && repostOfId == null) return
-        if (!posting.compareAndSet(false, true)) return
+        if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty()) && repostOfId == null) {
+            onComplete?.invoke(false)
+            return
+        }
+        if (!posting.compareAndSet(false, true)) {
+            onComplete?.invoke(false)
+            return
+        }
         viewModelScope.launch {
+            var posted = false
             try {
             _uiState.update { it.copy(isLoading = true) }
             val finalUrls = ArrayList<String>()
@@ -432,6 +454,7 @@ class MediaViewModel @Inject constructor(
 
                 val isVideo = context.contentResolver.getType(uri)?.startsWith("video/") == true ||
                     MediaUtils.isVideo(uriStr)
+                val isAudio = !isVideo && isMediaAudio(uriStr)
 
                 // Generate a thumbnail for the first selected video.
                 if (thumbnailUrl == null && isVideo) {
@@ -450,7 +473,7 @@ class MediaViewModel @Inject constructor(
                     try {
                         if (uri != null) {
                             var uploadSuccess = false
-                            val strippedImage = if (!isVideo) {
+                            val strippedImage = if (!isVideo && !isAudio) {
                                 runCatching {
                                     com.tpsk.tj.media.util.MediaProcessor.processAndStripExif(context, uri)
                                 }.getOrNull()
@@ -471,20 +494,31 @@ class MediaViewModel @Inject constructor(
                             strippedImage?.delete()
                             if (!uploadSuccess) {
                                 _uiState.update { it.copy(isLoading = false) }
-                                return@launch // Fail early if upload failed
+                                return@launch
                             }
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("MediaViewModel", "File error: ${e.message}")
+                        _toastMessage.value = "Could not read media: ${e.message ?: "file error"}"
+                        return@launch
                     }
                 } else {
                     finalUrls.add(uriStr)
                 }
             }
-            
-            val finalMediaType = if (postType == "short") "VIDEO" else (mediaType ?: if (finalUrls.size > 0) {
-                if (isMediaVideo(context, mediaUris.firstOrNull(), finalUrls[0])) "VIDEO" else "IMAGE"
-            } else "TEXT")
+
+            val videoCount = mediaUris.count { isMediaVideo(context, it, "") }
+            val audioCount = mediaUris.count { !isMediaVideo(context, it, "") && isMediaAudio(it) }
+            val imageCount = (mediaUris.size - videoCount - audioCount).coerceAtLeast(0)
+            val kindCount = listOf(videoCount, audioCount, imageCount).count { it > 0 }
+            val finalMediaType = when {
+                postType == "short" -> "VIDEO"
+                kindCount > 1 -> "MIXED"
+                videoCount > 0 -> "VIDEO"
+                audioCount > 0 -> "AUDIO"
+                imageCount > 0 -> "IMAGE"
+                else -> mediaType ?: "TEXT"
+            }
 
             if (finalUrls.size == 0 && content.length == 0 && (pollOptions == null || pollOptions.size == 0) && repostOfId == null) {
                 _uiState.update { it.copy(isLoading = false) }
@@ -493,6 +527,7 @@ class MediaViewModel @Inject constructor(
 
             socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId, repostOfId = repostOfId, thumbnailUrl = thumbnailUrl, compose = compose).collect { res ->
                 if (res is Resource.Success) {
+                    posted = true
                     _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
                     _uiState.update { it.copy(refreshTrigger = it.refreshTrigger + 1) }
 
@@ -524,11 +559,18 @@ class MediaViewModel @Inject constructor(
             } finally {
                 posting.set(false)
                 _uiState.update { it.copy(isLoading = false) }
+                onComplete?.invoke(posted)
             }
         }
     }
 
     fun clearToast() { _toastMessage.value = null }
+
+    private fun isMediaAudio(url: String?): Boolean {
+        val s = url?.lowercase() ?: return false
+        return s.endsWith(".m4a") || s.endsWith(".mp3") || s.endsWith(".aac") ||
+            s.endsWith(".wav") || s.endsWith(".ogg") || s.contains("audio")
+    }
 
     private fun isMediaVideo(context: android.content.Context, sourceUri: String?, uploadedUrl: String): Boolean {
         val uri = sourceUri?.let { android.net.Uri.parse(it) }

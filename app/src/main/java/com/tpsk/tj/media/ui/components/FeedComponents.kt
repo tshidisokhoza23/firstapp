@@ -55,6 +55,54 @@ fun InteractionIcon(
     }
 }
 
+@Composable
+private fun FeedMediaTile(
+    rawUrl: String,
+    modifier: Modifier,
+    placeholderPainter: androidx.compose.ui.graphics.painter.Painter,
+    errorPainter: androidx.compose.ui.graphics.painter.Painter,
+    onMediaClick: (String) -> Unit,
+    badge: String? = null
+) {
+    val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+    val isVideo = com.tpsk.tj.common.util.MediaUtils.isVideo(rawUrl)
+    val lower = formattedUrl.lowercase()
+    val isAudio = !isVideo && (lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg"))
+    Box(
+        modifier = modifier.clickable { onMediaClick(formattedUrl) },
+        contentAlignment = Alignment.Center
+    ) {
+        if (isAudio) {
+            Icon(Icons.Default.PlayCircle, contentDescription = "Audio", tint = Color.White, modifier = Modifier.size(36.dp))
+        } else {
+            AsyncImage(
+                model = formattedUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                placeholder = placeholderPainter,
+                error = errorPainter
+            )
+            if (isVideo) {
+                Icon(
+                    Icons.Default.PlayCircle,
+                    contentDescription = "Video",
+                    tint = Color.White.copy(alpha = 0.9f),
+                    modifier = Modifier.size(40.dp)
+                )
+            }
+        }
+        if (!badge.isNullOrBlank()) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(badge, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun MediaGrid(
@@ -156,19 +204,16 @@ fun MediaGrid(
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     urls.take(2).forEach { rawUrl ->
-                        val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
-                        AsyncImage(
-                            model = formattedUrl,
-                            contentDescription = null,
+                        FeedMediaTile(
+                            rawUrl = rawUrl,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color.DarkGray.copy(alpha = 0.2f))
-                                .clickable { onMediaClick(formattedUrl) },
-                            contentScale = ContentScale.Crop,
-                            placeholder = placeholderPainter,
-                            error = errorPainter
+                                .background(Color.DarkGray.copy(alpha = 0.2f)),
+                            placeholderPainter = placeholderPainter,
+                            errorPainter = errorPainter,
+                            onMediaClick = onMediaClick
                         )
                     }
                 }
@@ -180,19 +225,16 @@ fun MediaGrid(
                         .height(420.dp),
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
-                    val url0 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[0]) ?: urls[0]
-                    AsyncImage(
-                        model = url0,
-                        contentDescription = null,
+                    FeedMediaTile(
+                        rawUrl = urls[0],
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color.DarkGray.copy(alpha = 0.2f))
-                            .clickable { onMediaClick(url0) },
-                        contentScale = ContentScale.Crop,
-                        placeholder = placeholderPainter,
-                        error = errorPainter
+                            .background(Color.DarkGray.copy(alpha = 0.2f)),
+                        placeholderPainter = placeholderPainter,
+                        errorPainter = errorPainter,
+                        onMediaClick = onMediaClick
                     )
                     Column(
                         modifier = Modifier
@@ -201,19 +243,16 @@ fun MediaGrid(
                         verticalArrangement = Arrangement.spacedBy(spacing)
                     ) {
                         urls.subList(1, 3).forEach { rawUrl ->
-                            val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
-                            AsyncImage(
-                                model = formattedUrl,
-                                contentDescription = null,
+                            FeedMediaTile(
+                                rawUrl = rawUrl,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.DarkGray.copy(alpha = 0.2f))
-                                    .clickable { onMediaClick(formattedUrl) },
-                                contentScale = ContentScale.Crop,
-                                placeholder = placeholderPainter,
-                                error = errorPainter
+                                    .background(Color.DarkGray.copy(alpha = 0.2f)),
+                                placeholderPainter = placeholderPainter,
+                                errorPainter = errorPainter,
+                                onMediaClick = onMediaClick
                             )
                         }
                     }
@@ -235,19 +274,16 @@ fun MediaGrid(
                         horizontalArrangement = Arrangement.spacedBy(spacing)
                     ) {
                         for (i in 0..1) {
-                            val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[i]) ?: urls[i]
-                            AsyncImage(
-                                model = formattedUrl,
-                                contentDescription = null,
+                            FeedMediaTile(
+                                rawUrl = urls[i],
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.DarkGray.copy(alpha = 0.2f))
-                                    .clickable { onMediaClick(formattedUrl) },
-                                contentScale = ContentScale.Crop,
-                                placeholder = placeholderPainter,
-                                error = errorPainter
+                                    .background(Color.DarkGray.copy(alpha = 0.2f)),
+                                placeholderPainter = placeholderPainter,
+                                errorPainter = errorPainter,
+                                onMediaClick = onMediaClick
                             )
                         }
                     }
@@ -257,54 +293,29 @@ fun MediaGrid(
                             .weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(spacing)
                     ) {
-                        val url2 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[2]) ?: urls[2]
-                        AsyncImage(
-                            model = url2,
-                            contentDescription = null,
+                        FeedMediaTile(
+                            rawUrl = urls[2],
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color.DarkGray.copy(alpha = 0.2f))
-                                .clickable { onMediaClick(url2) },
-                            contentScale = ContentScale.Crop,
-                            placeholder = placeholderPainter,
-                            error = errorPainter
+                                .background(Color.DarkGray.copy(alpha = 0.2f)),
+                            placeholderPainter = placeholderPainter,
+                            errorPainter = errorPainter,
+                            onMediaClick = onMediaClick
                         )
-                        val url3 = com.tpsk.tj.common.util.MediaUtils.formatUrl(urls[3]) ?: urls[3]
-                        Box(
+                        FeedMediaTile(
+                            rawUrl = urls[3],
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color.DarkGray.copy(alpha = 0.2f))
-                                .clickable { onMediaClick(url3) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AsyncImage(
-                                model = url3,
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                                placeholder = placeholderPainter,
-                                error = errorPainter
-                            )
-                            if (extraCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(Color.Black.copy(alpha = 0.6f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "+$extraCount",
-                                        color = Color.White,
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
+                                .background(Color.DarkGray.copy(alpha = 0.2f)),
+                            placeholderPainter = placeholderPainter,
+                            errorPainter = errorPainter,
+                            onMediaClick = onMediaClick,
+                            badge = if (extraCount > 0) "+$extraCount" else null
+                        )
                     }
                 }
             }

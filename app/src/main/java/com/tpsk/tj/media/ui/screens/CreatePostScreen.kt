@@ -2,6 +2,7 @@
 
 package com.tpsk.tj.media.ui.screens
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tpsk.tj.LocalCurrentUser
 import com.tpsk.tj.common.data.repository.AiRepository
+import com.tpsk.tj.common.data.repository.rememberAiRepository
 import com.tpsk.tj.common.ui.components.AppFilterChip
 import com.tpsk.tj.common.ui.theme.LocalIsDarkTheme
 import com.tpsk.tj.media.model.Post
@@ -65,7 +67,6 @@ fun CreatePostScreen(
     var postText by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Technology") }
     var selectedImageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var selectedLocation by remember { mutableStateOf<String?>(null) }
     var showPoll by remember { mutableStateOf(false) }
     var pollOptions by remember { mutableStateOf(listOf("", "")) }
     var isPostingState by remember { mutableStateOf(false) }
@@ -81,8 +82,10 @@ fun CreatePostScreen(
     var showSchedule by remember { mutableStateOf(false) }
     var showCollaborators by remember { mutableStateOf(false) }
     var showMood by remember { mutableStateOf(false) }
-    var showLocationDialog by remember { mutableStateOf(false) }
-    var locationDraft by remember { mutableStateOf("") }
+    var showGifPicker by remember { mutableStateOf(false) }
+    var gifQuery by remember { mutableStateOf("") }
+    var gifResults by remember { mutableStateOf(listOf<com.tpsk.tj.common.data.api.GifDto>()) }
+    var gifError by remember { mutableStateOf<String?>(null) }
     var peopleQuery by remember { mutableStateOf("") }
     var people by remember { mutableStateOf(listOf<com.tpsk.tj.common.data.api.PersonDto>()) }
     var voicePath by remember { mutableStateOf<String?>(null) }
@@ -123,20 +126,47 @@ fun CreatePostScreen(
     }
 
     val charLimit = 280
-    val canPost = (postText.isNotBlank() || selectedImageUris.isNotEmpty() || showPoll) && postText.length <= charLimit
+    val maxMedia = 10
+    val filledPollOptions = pollOptions.count { it.isNotBlank() }
+    val canPost = (
+        postText.isNotBlank() ||
+            selectedImageUris.isNotEmpty() ||
+            voicePath != null ||
+            (showPoll && filledPollOptions >= 2)
+        ) && postText.length <= charLimit
 
-    var pendingPreviewUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var pendingPreviewType by remember { mutableStateOf("image") }
-
-    val pickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 4)
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            val firstMime = context.contentResolver.getType(uris.first())
-            pendingPreviewType = if (firstMime?.startsWith("video") == true) "video" else "image"
-            pendingPreviewUris = uris
+    fun attachMedia(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        val current = selectedImageUris.toMutableList()
+        var overflow = false
+        for (uri in uris) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            if (current.any { it.toString() == uri.toString() }) continue
+            if (current.size >= maxMedia) {
+                overflow = true
+                continue
+            }
+            current.add(uri)
+        }
+        selectedImageUris = current
+        if (overflow) {
+            Toast.makeText(context, "You can attach up to $maxMedia items", Toast.LENGTH_SHORT).show()
         }
     }
+
+    val imagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = maxMedia)
+    ) { uris -> attachMedia(uris) }
+
+    val videoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 4)
+    ) { uris -> attachMedia(uris) }
+
+    val gifFilePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri -> if (uri != null) attachMedia(listOf(uri)) }
 
     val gradientBrush = if (isDark) {
         Brush.horizontalGradient(colors = listOf(Color(0xFFA855F7), Color(0xFF14B8A6)))
@@ -182,6 +212,15 @@ fun CreatePostScreen(
                     Button(
                         onClick = {
                             if (!canPost || isPostingState) return@Button
+                            if (recording) {
+                                runCatching { recorder?.stop(); recorder?.release() }
+                                recorder = null
+                                recording = false
+                            }
+                            if (showPoll && filledPollOptions < 2) {
+                                Toast.makeText(context, "Add at least two poll choices", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
                             isPostingState = true
                             postScope.launch {
                             val contestTag = contestHashtagInput.trim().removePrefix("#").lowercase()
@@ -214,9 +253,14 @@ fun CreatePostScreen(
                                 content = content,
                                 mediaUris = imageUriStrings,
                                 postType = postType,
-                                tags = if (isContestSelected && contestTag.isNotBlank()) listOf(contestTag) else emptyList(),
+                                tags = buildList {
+                                    if (isContestSelected && contestTag.isNotBlank()) add(contestTag)
+                                    if (!selectedCategory.equals("All", true) && selectedCategory.isNotBlank()) {
+                                        add(selectedCategory.lowercase())
+                                    }
+                                },
                                 pollOptions = finalPoll,
-                                location = selectedLocation,
+                                location = null,
                                 parentPostId = replyToPost?.id,
                                 rootPostId = replyToPost?.rootPostId ?: replyToPost?.id,
                                 repostOfId = quotingPost?.id,
@@ -232,10 +276,12 @@ fun CreatePostScreen(
                                         val each = 100 / (collaborators.size + 1)
                                         collaborators.map { com.tpsk.tj.common.data.api.SplitInputDto(it.id, each.coerceAtLeast(1)) }
                                     }
-                                )
+                                ),
+                                onComplete = { ok ->
+                                    isPostingState = false
+                                    if (ok) onPostCreated()
+                                }
                             )
-
-                            onPostCreated()
                             }
                         },
                         enabled = canPost && !isPostingState,
@@ -331,7 +377,6 @@ fun CreatePostScreen(
 
                         TextButton(
                             onClick = {
-                                onDismiss()
                                 com.tpsk.tj.common.util.GlobalNavigation.navigateTo(Screen.CreateContest.route)
                             }
                         ) {
@@ -394,24 +439,18 @@ fun CreatePostScreen(
                     ) {
                         IconButton(
                             onClick = {
-                                pickerLauncher.launch(
+                                imagePicker.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
                                 )
                             }
                         ) {
-                            Icon(Icons.Outlined.Image, contentDescription = "Image", tint = accentColor)
-                        }
-
-                        IconButton(
-                            onClick = { showContestDialog = true }
-                        ) {
-                            Text("🏆", fontSize = 18.sp)
+                            Icon(Icons.Outlined.Image, contentDescription = "Photos and videos", tint = accentColor)
                         }
 
                         IconButton(
                             onClick = {
-                                pickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.SingleMimeType("video/*"))
+                                videoPicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
                                 )
                             }
                         ) {
@@ -419,20 +458,20 @@ fun CreatePostScreen(
                         }
 
                         IconButton(
-                            onClick = {
-                                if (!showPoll) {
-                                    showPoll = true
-                                    selectedImageUris = emptyList()
-                                } else {
-                                    showPoll = false
-                                }
-                            }
+                            onClick = { showPoll = !showPoll }
                         ) {
-                            Icon(Icons.Outlined.Poll, contentDescription = "Poll", tint = accentColor)
+                            Icon(Icons.Outlined.Poll, contentDescription = "Poll", tint = if (showPoll) Color(0xFF8A2BE2) else accentColor)
                         }
 
                         IconButton(onClick = {
-                            pickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.SingleMimeType("image/gif")))
+                            gifQuery = ""
+                            gifResults = emptyList()
+                            gifError = null
+                            showGifPicker = true
+                            mediaViewModel.searchGifs("trending") { gifs, error ->
+                                gifResults = gifs
+                                gifError = error
+                            }
                         }) {
                             Text("GIF", color = accentColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
@@ -466,17 +505,24 @@ fun CreatePostScreen(
                         }
 
                         IconButton(onClick = {
-                            locationDraft = selectedLocation.orEmpty()
-                            showLocationDialog = true
-                        }) {
-                            Icon(Icons.Outlined.LocationOn, contentDescription = "Location", tint = accentColor)
-                        }
-
-                        IconButton(onClick = {
-                            val image = selectedImageUris.firstOrNull()?.toString()
-                            if (image == null) return@IconButton
+                            val image = selectedImageUris.firstOrNull { uri ->
+                                val mime = context.contentResolver.getType(uri).orEmpty()
+                                mime.isBlank() || mime.startsWith("image/")
+                            }?.toString()
+                            if (image == null) {
+                                Toast.makeText(context, "Add a picture first", Toast.LENGTH_SHORT).show()
+                                return@IconButton
+                            }
+                            Toast.makeText(context, "Writing a caption…", Toast.LENGTH_SHORT).show()
                             mediaViewModel.artistCaption(image) { caption ->
-                                if (caption.isNotBlank()) postText = caption
+                                val failed = caption.isBlank() ||
+                                    caption.startsWith("AI caption") ||
+                                    caption.startsWith("Could not upload")
+                                if (failed) {
+                                    Toast.makeText(context, caption.ifBlank { "AI caption is unavailable" }, Toast.LENGTH_LONG).show()
+                                } else {
+                                    postText = caption.take(charLimit)
+                                }
                             }
                         }) {
                             Icon(Icons.Default.Star, "AI caption", tint = Color(0xFF8A2BE2))
@@ -694,6 +740,51 @@ fun CreatePostScreen(
                 }
             }
 
+            if (showPoll) {
+                Text(
+                    text = "POLL",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+                pollOptions.forEachIndexed { index, option ->
+                    OutlinedTextField(
+                        value = option,
+                        onValueChange = { value ->
+                            pollOptions = pollOptions.toMutableList().also { it[index] = value }
+                        },
+                        label = { Text("Choice ${index + 1}") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+                }
+                if (pollOptions.size < 4) {
+                    TextButton(onClick = { pollOptions = pollOptions + "" }) { Text("Add choice") }
+                }
+            }
+
+            if (voicePath != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(if (recording) Icons.Default.Stop else Icons.Outlined.Mic, contentDescription = null, tint = accentColor)
+                    Text(
+                        text = if (recording) "Recording voice note" else "Voice note attached",
+                        modifier = Modifier.padding(start = 8.dp).weight(1f),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    TextButton(onClick = {
+                        runCatching { recorder?.stop(); recorder?.release() }
+                        recorder = null
+                        recording = false
+                        voicePath = null
+                    }) { Text("Remove") }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Attached Media Grid
@@ -709,12 +800,22 @@ fun CreatePostScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                         ) {
+                            val mime = context.contentResolver.getType(uri).orEmpty()
+                            val isVideo = mime.startsWith("video/") || com.tpsk.tj.common.util.MediaUtils.isVideo(uri.toString())
                             AsyncImage(
                                 model = uri,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
+                            if (isVideo) {
+                                Icon(
+                                    Icons.Default.PlayCircle,
+                                    contentDescription = "Video",
+                                    tint = Color.White,
+                                    modifier = Modifier.align(Alignment.Center).size(36.dp)
+                                )
+                            }
                             IconButton(
                                 onClick = { selectedImageUris = selectedImageUris.filter { it != uri } },
                                 modifier = Modifier
@@ -768,21 +869,6 @@ fun CreatePostScreen(
             confirmButton = { TextButton(onClick = { selectedMood = ""; showMood = false }) { Text("Clear") } }
         )
     }
-    if (showLocationDialog) {
-        AlertDialog(
-            onDismissRequest = { showLocationDialog = false },
-            title = { Text("Location") },
-            text = {
-                OutlinedTextField(value = locationDraft, onValueChange = { locationDraft = it }, label = { Text("Place") })
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    selectedLocation = locationDraft.trim().ifBlank { null }
-                    showLocationDialog = false
-                }) { Text("Save") }
-            }
-        )
-    }
     if (showSchedule) {
         AlertDialog(
             onDismissRequest = { showSchedule = false },
@@ -826,8 +912,62 @@ fun CreatePostScreen(
             confirmButton = { TextButton(onClick = { showCollaborators = false }) { Text("Done") } }
         )
     }
+    if (showGifPicker) {
+        AlertDialog(
+            onDismissRequest = { showGifPicker = false },
+            title = { Text("GIF") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = gifQuery,
+                        onValueChange = {
+                            gifQuery = it
+                            mediaViewModel.searchGifs(it.ifBlank { "trending" }) { gifs, error ->
+                                gifResults = gifs
+                                gifError = error
+                            }
+                        },
+                        label = { Text("Search GIFs") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (!gifError.isNullOrBlank()) {
+                        Text(gifError!!, color = Color(0xFFEF4444), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                    }
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        items(gifResults) { gif ->
+                            AsyncImage(
+                                model = gif.preview.ifBlank { gif.url },
+                                contentDescription = gif.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(96.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        if (gif.url.isNotBlank()) {
+                                            attachMedia(listOf(Uri.parse(gif.url)))
+                                            showGifPicker = false
+                                        }
+                                    }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showGifPicker = false
+                    gifFilePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.SingleMimeType("image/gif")))
+                }) { Text("Gallery") }
+            },
+            dismissButton = { TextButton(onClick = { showGifPicker = false }) { Text("Close") } }
+        )
+    }
     if (showAiAssistSheet) {
-        val repo = aiRepository ?: remember { AiRepository(null) }
+        val repo = aiRepository ?: rememberAiRepository()
         AiAssistSheet(
             initialText = postText,
             aiRepository = repo,
@@ -884,24 +1024,4 @@ fun CreatePostScreen(
         )
     }
 
-    if (pendingPreviewUris.isNotEmpty()) {
-        com.tpsk.tj.chat.ui.screens.MediaPreviewOverlay(
-            uris = pendingPreviewUris,
-            type = pendingPreviewType,
-            onDismiss = { pendingPreviewUris = emptyList() },
-            onSend = { caption, processedUris ->
-                if (caption.isNotBlank() && postText.isBlank()) {
-                    postText = caption
-                }
-                val current = selectedImageUris.toMutableList()
-                for (uri in processedUris) {
-                    if (!current.contains(uri) && current.size < 4) {
-                        current.add(uri)
-                    }
-                }
-                selectedImageUris = current
-                pendingPreviewUris = emptyList()
-            }
-        )
-    }
 }

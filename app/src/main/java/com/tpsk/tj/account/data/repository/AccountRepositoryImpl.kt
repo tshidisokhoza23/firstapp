@@ -301,11 +301,16 @@ class AccountRepositoryImpl @Inject constructor(
         var tempFile: File? = null
         try {
             val resolver = context.contentResolver
+            val pathName = uri.lastPathSegment?.substringAfterLast('/').orEmpty()
             val mediaType = resolver.getType(uri)?.toMediaTypeOrNull()
                 ?: when {
                     uri.toString().endsWith(".mp4", ignoreCase = true) -> "video/mp4".toMediaTypeOrNull()
+                    uri.toString().endsWith(".mov", ignoreCase = true) -> "video/quicktime".toMediaTypeOrNull()
+                    uri.toString().endsWith(".webm", ignoreCase = true) -> "video/webm".toMediaTypeOrNull()
                     uri.toString().endsWith(".png", ignoreCase = true) -> "image/png".toMediaTypeOrNull()
-                    else -> "image/jpeg".toMediaTypeOrNull()
+                    uri.toString().endsWith(".gif", ignoreCase = true) -> "image/gif".toMediaTypeOrNull()
+                    uri.toString().endsWith(".webp", ignoreCase = true) -> "image/webp".toMediaTypeOrNull()
+                    else -> voiceNoteMime(pathName)?.toMediaTypeOrNull() ?: "image/jpeg".toMediaTypeOrNull()
                 }
 
             var name: String? = null
@@ -332,7 +337,7 @@ class AccountRepositoryImpl @Inject constructor(
                 tempFile = exported
                 uploadTarget = Uri.fromFile(exported)
                 name = exported.name
-            } else if (!alreadyCompressed && mime.startsWith("image/") && folder != "avatars") {
+            } else if (!alreadyCompressed && mime.startsWith("image/") && !mime.contains("gif") && folder != "avatars") {
                 MediaUtils.compressImage(context, uri)?.let { compressed ->
                     tempFile = compressed
                     uploadTarget = Uri.fromFile(compressed)
