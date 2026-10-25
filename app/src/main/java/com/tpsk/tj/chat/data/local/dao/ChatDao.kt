@@ -26,7 +26,7 @@ interface ChatDao {
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
-            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            COALESCE(NULLIF(u.avatarUrl, ''), NULLIF(c.avatarUrl, '')) AS avatarUrl,
             c.isOnline AS isOnline,
             c.isMuted AS isMuted,
             c.isPinned AS isPinned,
@@ -80,7 +80,7 @@ interface ChatDao {
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
-            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            COALESCE(NULLIF(u.avatarUrl, ''), NULLIF(c.avatarUrl, '')) AS avatarUrl,
             c.isOnline AS isOnline,
             c.isMuted AS isMuted,
             c.isPinned AS isPinned,
@@ -131,7 +131,7 @@ interface ChatDao {
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
-            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            COALESCE(NULLIF(u.avatarUrl, ''), NULLIF(c.avatarUrl, '')) AS avatarUrl,
             c.isOnline AS isOnline,
             c.isMuted AS isMuted,
             c.isPinned AS isPinned,
@@ -182,7 +182,7 @@ interface ChatDao {
             c.timestamp AS timestamp,
             c.unreadCount AS unreadCount,
             c.lastSeen AS lastSeen,
-            COALESCE(u.avatarUrl, c.avatarUrl) AS avatarUrl,
+            COALESCE(NULLIF(u.avatarUrl, ''), NULLIF(c.avatarUrl, '')) AS avatarUrl,
             c.isOnline AS isOnline,
             c.isMuted AS isMuted,
             c.isPinned AS isPinned,
@@ -411,10 +411,14 @@ interface ChatDao {
         WHERE status IN ('PENDING', 'FAILED')
            OR (
                 status = 'SENDING'
-                AND mediaUrls IS NOT NULL
-                AND mediaUrls NOT IN ('', '[]', 'null')
-                AND mediaUrls NOT LIKE '%file:%'
-                AND mediaUrls NOT LIKE '%content:%'
+                AND (
+                    mediaUrls IS NULL
+                    OR mediaUrls IN ('', '[]', 'null')
+                    OR (
+                        mediaUrls NOT LIKE '%file:%'
+                        AND mediaUrls NOT LIKE '%content:%'
+                    )
+                )
            )
         ORDER BY timestamp ASC
     """)

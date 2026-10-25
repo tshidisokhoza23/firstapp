@@ -28,8 +28,15 @@ import com.tpsk.tj.chat.data.GlobalCallState
 import com.tpsk.tj.chat.model.ChatMessage
 import com.tpsk.tj.chat.model.MessageStatus
 import com.tpsk.tj.chat.model.consistentName
+import com.tpsk.tj.common.model.User
 import com.tpsk.tj.common.ui.theme.*
 import com.tpsk.tj.common.util.formatWhatsAppTime
+
+private fun isOwnIdentity(value: String?, me: User): Boolean {
+    val mine = me.phoneNumber.filter { it.isDigit() }.takeLast(9)
+    val other = value?.filter { it.isDigit() }?.takeLast(9).orEmpty()
+    return (mine.length >= 9 && mine == other) || (!me.id.isBlank() && value == me.id)
+}
 
 @Composable
 fun ChatItem(
@@ -39,11 +46,19 @@ fun ChatItem(
     allStoriesViewed: Boolean = false,
     onAvatarClick: () -> Unit = {}
 ) {
-    val displayName = remember(chat.displayName, chat.senderName, chat.otherUserId, chat.phoneNumber, chat.id) {
-        chat.consistentName().ifBlank {
-            val phone = chat.phoneNumber?.takeIf { it.isNotBlank() }
-                ?: chat.otherUserId?.let { GlobalCallState.getContactPhone(it) }
-            sanitizeDisplayName(chat.senderName, chat.otherUserId, phone).ifBlank { phone.orEmpty() }
+    val me = com.tpsk.tj.LocalCurrentUser.current
+    val displayName = remember(chat.displayName, chat.senderName, chat.otherUserId, chat.phoneNumber, chat.id, me.id, me.phoneNumber) {
+        val phone = (chat.phoneNumber?.takeIf { it.isNotBlank() }
+            ?: chat.otherUserId?.let { GlobalCallState.getContactPhone(it) })
+            ?.takeIf { !isOwnIdentity(it, me) }
+        val raw = chat.consistentName().ifBlank {
+            sanitizeDisplayName(chat.senderName, chat.otherUserId, phone)
+        }
+        val own = isOwnIdentity(raw, me) || chat.otherUserId == me.id
+        when {
+            !own && raw.isNotBlank() && !isIdString(raw, chat.otherUserId ?: chat.id) -> raw
+            !phone.isNullOrBlank() -> phone
+            else -> ""
         }
     }
 
@@ -63,7 +78,7 @@ fun ChatItem(
         val avatarModifier = if (hasStory) {
             val borderColor = if (allStoriesViewed) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.primary
             Modifier
-                .size(56.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .border(
                     width = 2.dp,
@@ -71,10 +86,10 @@ fun ChatItem(
                     shape = CircleShape
                 )
                 .clickable { onAvatarClick() }
-                .padding(3.dp)
+                .padding(2.dp)
         } else {
             Modifier
-                .size(56.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .clickable { onAvatarClick() }
         }
@@ -95,8 +110,8 @@ fun ChatItem(
                 ChatAvatar(
                     imageUrl = chat.avatarUrl,
                     name = displayName,
-                    size = 56.dp,
-                    fontSize = 20.sp,
+                    size = 48.dp,
+                    fontSize = 18.sp,
                     backgroundColor = backgroundColor,
                     textColor = textColor
                 )
@@ -105,14 +120,14 @@ fun ChatItem(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(14.dp)
+                        .size(12.dp)
                         .background(Color(0xFF25D366), CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(

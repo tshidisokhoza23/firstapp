@@ -140,7 +140,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         NewStoryScreen(
             onBack = { navController.popBackStack() },
             onNext = { content, url, type ->
-                navController.navigate(Screen.ShareStory.createRoute(content, url, type))
+                navController.navigate(Screen.ShareStory.createRoute(content, url, type)) {
+                    popUpTo(Screen.NewStory.route) { inclusive = true }
+                }
             }
         )
     }
@@ -159,18 +161,16 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val storyViewModel: StoryViewModel = hiltViewModel()
         val postResult by storyViewModel.postResult.collectAsState()
         val context = androidx.compose.ui.platform.LocalContext.current
-        val currentUser = com.tpsk.tj.LocalCurrentUser.current
+        val activity = context as? androidx.activity.ComponentActivity
+        val mainViewModel: com.tpsk.tj.home.ui.viewmodel.MainViewModel? =
+            if (activity != null) hiltViewModel(activity) else null
 
         LaunchedEffect(postResult) {
             when (val res = postResult) {
                 is com.tpsk.tj.common.util.Resource.Success -> {
                     android.widget.Toast.makeText(context, "Story posted!", android.widget.Toast.LENGTH_SHORT).show()
                     storyViewModel.clearPostResult()
-                    val popped = navController.popBackStack(Screen.NewStory.route, true)
-                    if (!popped) {
-                        navController.popBackStack(Screen.ShareStory.route, true)
-                    }
-                    navController.navigate(Screen.Story.createRoute(userId = currentUser?.id, play = true))
+                    navController.returnToChats(mainViewModel)
                 }
                 is com.tpsk.tj.common.util.Resource.Error -> {
                     android.widget.Toast.makeText(context, res.message ?: "Failed to post story", android.widget.Toast.LENGTH_LONG).show()
@@ -606,7 +606,9 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             onBack = { navController.popBackStack() },
             onContactSelected = { contact ->
                 GlobalCallState.updateContactInfo(contact.id, contact.displayName, contact.phoneNumber)
-                navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) {
+                navController.navigate(
+                    Screen.Chat.createRoute(contact.id, type = "initiate", displayName = contact.displayName)
+                ) {
                     popUpTo(Screen.ContactPicker.route) { inclusive = true }
                 }
             },
@@ -695,7 +697,7 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
         val chat = chats.firstOrNull { it.id == chatId } ?: ChatMessage(
             id = chatId,
             type = ConversationType.DIRECT,
-            senderName = "Chat",
+            senderName = "",
             lastMessage = "",
             timestamp = 0L,
             avatarColor = BoyishPurple
@@ -1016,5 +1018,18 @@ fun NavGraphBuilder.chatsNav(navController: NavHostController) {
             viewModel = chatViewModel,
             onBack = { navController.popBackStack() }
         )
+    }
+}
+
+private fun NavHostController.returnToChats(mainViewModel: com.tpsk.tj.home.ui.viewmodel.MainViewModel?) {
+    mainViewModel?.setSelectedBottomItem(0)
+    val mainRoute = "main?tab={tab}&subTab={subTab}&shortId={shortId}"
+    var guard = 0
+    while (currentDestination?.route?.startsWith("main") != true && guard < 8 && popBackStack()) {
+        guard++
+    }
+    navigate(Screen.Main.createRoute(tab = "home")) {
+        launchSingleTop = true
+        popUpTo(mainRoute) { inclusive = false }
     }
 }

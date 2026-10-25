@@ -223,8 +223,11 @@ class ChatRepositoryImpl @Inject constructor(
                                 .toConversationTypeOrNull()
                             val groupTitle = payload["conversation_title"]?.jsonPrimitive?.contentOrNull
                                 ?.takeIf { it.isNotBlank() }
+                            val hiddenAt = hiddenChatAt(message.conversationId)
+                            val keepHidden = hiddenAt > 0L && !message.isFromMe && message.timestamp <= hiddenAt
+                            if (hiddenAt > 0L && !keepHidden) unhideChatLocally(message.conversationId)
 
-                            if (existingChat != null) {
+                            if (!keepHidden && existingChat != null) {
                                 val isGroupChat = existingChat.type == com.tpsk.tj.common.model.ConversationType.GROUP ||
                                     existingChat.type == com.tpsk.tj.common.model.ConversationType.CHANNEL ||
                                     existingChat.isGroup ||
@@ -266,7 +269,7 @@ class ChatRepositoryImpl @Inject constructor(
                                 if (!message.isFromMe) {
                                     chatDao.incrementUnreadCount(message.conversationId)
                                 }
-                            } else {
+                            } else if (!keepHidden) {
                                 // The server now tags every message with the conversation's real
                                 // type, so a brand-new local chat entity can be created correctly
                                 // on the first message instead of guessing from the sender id.
@@ -360,6 +363,7 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                     val title = payload["title"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } ?: "Group"
                     val avatar = payload["avatar_url"]?.jsonPrimitive?.contentOrNull
+                    if (isChatHidden(convId)) return@let
                     val existing = chatDao.searchChatsById(convId)
                     if (existing == null) {
                         chatDao.insertChat(
@@ -391,6 +395,17 @@ class ChatRepositoryImpl @Inject constructor(
                 envelope.payload?.let { payload ->
                     val convId = payload["conversation_id"]?.jsonPrimitive?.contentOrNull ?: return@let
                     chatDao.deleteChat(convId)
+                }
+            }
+
+            "message_failed" -> {
+                envelope.payload?.let { payload ->
+                    val clientUuid = payload["client_msg_id"]?.jsonPrimitive?.contentOrNull ?: return@let
+                    val current = chatDao.getMessageById(clientUuid)
+                    if (current != null && current.status != MessageStatus.SENT) {
+                        chatDao.updateMessageStatus(clientUuid, MessageStatus.PENDING)
+                        ChatOutboxWorker.enqueue(context)
+                    }
                 }
             }
 
@@ -654,7 +669,7 @@ class ChatRepositoryImpl @Inject constructor(
                 val newChat = com.tpsk.tj.chat.data.local.entity.ChatEntity(
                     id = chatId,
                     type = conversationType,
-                    senderName = channelObj?.name ?: contactName ?: contactPhone ?: "Chat",
+                    senderName = channelObj?.name ?: contactName ?: contactPhone ?: "",
                     lastMessage = displaySummary,
                     timestamp = pendingMsg.timestamp,
                     unreadCount = 0,
@@ -674,38 +689,11 @@ class ChatRepositoryImpl @Inject constructor(
             chatDao.insertMessages(listOf(pendingMsg.toEntity(chatId)))
         }
 
-        // Live text goes over the socket. Do NOT also enqueue the outbox for
-        // that path — REST SendMessage would persist+broadcast a second copy.
-        val sentLive = scheduledAt == null && mediaUrls.isEmpty() && webSocketManager.send(
-            "send_message",
-            buildJsonObject {
-                put("client_msg_id", clientUuid)
-                put("conversation_id", chatId)
-                put("content", wireBody)
-                put("media_type", messageType.uppercase())
-                if (!contactName.isNullOrBlank()) put("contact_name", contactName)
-                if (!contactPhone.isNullOrBlank()) put("contact_phone", contactPhone)
-                if (latitude != null) put("latitude", latitude)
-                if (longitude != null) put("longitude", longitude)
-                if (!replyToId.isNullOrBlank()) put("reply_to_id", replyToId)
-                if (!replyToText.isNullOrBlank()) put("reply_to_text", replyToText)
-                if (!replyToSenderName.isNullOrBlank()) put("reply_to_sender_name", replyToSenderName)
-            }
-        )
-        if (sentLive) {
-            chatDao.updateMessageStatus(clientUuid, MessageStatus.SENDING)
-            emit(Resource.Success(pendingMsg))
-            return@flow
-        }
-
-        // The optimistic bubble is already SENDING. insertMessages keeps the
-        // higher status, so a media send would stay SENDING and the outbox
-        // would never POST it. Force PENDING, then POST now. The worker is
-        // only the retry if this call has no network.
+        // Persist through REST. A socket enqueue is not a send: the server can
+        // drop the frame when membership lookup misses, and SENDING is never retried.
+        val hasLocalMedia = mediaUrls.any { it.startsWith("file:") || it.startsWith("content:") }
         chatDao.updateMessageStatus(clientUuid, MessageStatus.PENDING)
-        val remoteReady = scheduledAt == null && mediaUrls.isNotEmpty() &&
-            mediaUrls.none { it.startsWith("file:") || it.startsWith("content:") }
-        if (!remoteReady) {
+        if (scheduledAt != null || hasLocalMedia) {
             emit(Resource.Success(pendingMsg))
             ChatOutboxWorker.enqueue(context)
             return@flow
@@ -895,30 +883,6 @@ class ChatRepositoryImpl @Inject constructor(
                             localContact = contactDao.getContactByPhoneNumber(rawPhone)
                         }
 
-                        // Fetch real user profile from server if contact info is missing locally
-                        if ((localContact == null || (localContact.displayName.isBlank() && localContact.phoneNumber.isBlank())) && otherId.isNotBlank()) {
-                            try {
-                                val userResp = userApi.getUserById(otherId)
-                                if (userResp.isSuccessful && userResp.body()?.user != null) {
-                                    val u = userResp.body()!!.user
-                                    localContact = com.tpsk.tj.chat.data.local.entity.ContactEntity(
-                                        id = u.id,
-                                        username = u.username,
-                                        displayName = u.displayName,
-                                        avatarUrl = u.avatarUrl,
-                                        phoneNumber = u.phoneNumber.orEmpty(),
-                                        isRegistered = true,
-                                        isAuthenticated = true,
-                                        isVerified = false
-                                    )
-                                    contactDao.insertContacts(listOf(localContact))
-                                    GlobalCallState.updateContactInfo(u.id, u.displayName, u.phoneNumber)
-                                }
-                            } catch (e: Exception) {
-                                Log.w("ChatRepository", "Failed to load user profile for $otherId", e)
-                            }
-                        }
-
                         val phone = rawPhone.ifBlank { localContact?.phoneNumber?.takeIf { it.isNotBlank() } ?: GlobalCallState.getContactPhone(otherId).orEmpty() }
 
                         val resolvedUser = com.tpsk.tj.common.model.User(
@@ -929,10 +893,14 @@ class ChatRepositoryImpl @Inject constructor(
                         )
 
                         val finalName = displayNameResolver.resolve(resolvedUser, phone)
+                        val avatar = mapped.avatarUrl?.takeIf { it.isNotBlank() }
+                            ?: localContact?.avatarUrl?.takeIf { it.isNotBlank() }
+                            ?: phone.takeIf { it.isNotBlank() }?.let { ContactUtils.getContactPhotoUri(context, it) }
                         mapped = mapped.copy(
                             senderName = finalName.ifEmpty { phone },
                             phoneNumber = phone,
-                            otherUserId = otherId
+                            otherUserId = otherId,
+                            avatarUrl = avatar
                         )
                     } else if (mapped.type == com.tpsk.tj.common.model.ConversationType.MINGLE) {
                         val otherId = chat.contact_id.orEmpty()
@@ -997,6 +965,7 @@ class ChatRepositoryImpl @Inject constructor(
                         )
                     } else if (local != null) {
                         resultEntity.copy(
+                            avatarUrl = resultEntity.avatarUrl?.takeIf { it.isNotBlank() } ?: local.avatarUrl,
                             pinnedMessageId = serverEntity.pinnedMessageId ?: local.pinnedMessageId,
                             lastSeen = if (serverEntity.lastSeen > 0L) serverEntity.lastSeen else local.lastSeen,
                             isOnline = serverEntity.isOnline
@@ -1006,8 +975,20 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                 }
 
+                val visibleEntities = finalEntities.filter { entity ->
+                    if (isChatHidden(entity.id)) {
+                        Log.d("ChatRepository", "Keeping deleted chat hidden: ${entity.id}")
+                        false
+                    } else {
+                        true
+                    }
+                }
                 db.withTransaction {
-                    chatDao.insertChats(finalEntities)
+                    finalEntities.filter { isChatHidden(it.id) }.forEach { hidden ->
+                        chatDao.deleteChat(hidden.id)
+                        chatDao.clearMessages(hidden.id)
+                    }
+                    chatDao.insertChats(visibleEntities)
                     val serverIds = finalEntities.map { it.id }.toSet()
                     val serverHasGroups = finalEntities.any {
                         it.type == com.tpsk.tj.common.model.ConversationType.GROUP || it.isGroup
@@ -1022,10 +1003,13 @@ class ChatRepositoryImpl @Inject constructor(
                     }
                 }
 
-                val chatsNeedingHistory = finalEntities.filter { entity ->
+                emit(Resource.Success(true))
+                backfillMissingAvatars(visibleEntities)
+
+                val chatsNeedingHistory = visibleEntities.filter { entity ->
                     chatDao.getLatestMessage(entity.id) == null
                 }
-                for (entity in chatsNeedingHistory.take(40)) {
+                for (entity in chatsNeedingHistory.take(8)) {
                     try {
                         val history = chatApi.getMessages(entity.id, cursor = null, limit = 50)
                         if (history.isSuccessful && history.body() != null) {
@@ -1057,7 +1041,6 @@ class ChatRepositoryImpl @Inject constructor(
                         Log.w("ChatRepository", "hydrate messages failed for ${entity.id}", e)
                     }
                 }
-                emit(Resource.Success(true))
             } else {
                 emit(Resource.Error("Chat sync failed: ${response.code()}"))
             }
@@ -1120,6 +1103,7 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun deleteChat(chatId: String): Flow<Resource<Boolean>> = flow {
         try {
+            hideChatLocally(chatId)
             val chatDao = chatDaoProvider.get()
             val db = dbProvider.get()
 
@@ -1132,6 +1116,7 @@ class ChatRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 emit(Resource.Success(true))
             } else {
+                Log.e("ChatRepository", "Server refused chat delete ${response.code()} for $chatId")
                 emit(Resource.Error("Server failed: ${response.code()}"))
             }
         } catch (e: Exception) {
@@ -1139,6 +1124,32 @@ class ChatRepositoryImpl @Inject constructor(
             emit(Resource.Error(e.message ?: "Deletion error"))
         }
     }
+
+    private fun hiddenChatPrefs() =
+        context.getSharedPreferences("hidden_chats", android.content.Context.MODE_PRIVATE)
+
+    private fun hiddenChatKey(chatId: String): String {
+        val userId = sessionManager.getUserId().orEmpty()
+        return "$userId|$chatId"
+    }
+
+    private fun hideChatLocally(chatId: String) {
+        if (chatId.isBlank()) return
+        hiddenChatPrefs().edit().putLong(hiddenChatKey(chatId), System.currentTimeMillis()).apply()
+    }
+
+    private fun unhideChatLocally(chatId: String) {
+        if (chatId.isBlank()) return
+        hiddenChatPrefs().edit().remove(hiddenChatKey(chatId)).apply()
+    }
+
+    private fun isChatHidden(chatId: String): Boolean {
+        if (chatId.isBlank()) return false
+        return hiddenChatPrefs().getLong(hiddenChatKey(chatId), 0L) > 0L
+    }
+
+    private fun hiddenChatAt(chatId: String): Long =
+        hiddenChatPrefs().getLong(hiddenChatKey(chatId), 0L)
 
     private fun formatLastMessageSummary(content: String, type: MessageType? = null): String {
         val clean = com.tpsk.tj.chat.model.MessageMarkers.strip(content)
@@ -1226,8 +1237,33 @@ class ChatRepositoryImpl @Inject constructor(
         else -> null
     }
 
+    private fun phonesMatch(left: String?, right: String?): Boolean {
+        val a = cleanPhoneDigits(left)
+        val b = cleanPhoneDigits(right)
+        return a.length >= 9 && a == b
+    }
+
+    private fun cleanPhoneDigits(phone: String?): String {
+        if (phone.isNullOrBlank()) return ""
+        val digits = phone.filter { it.isDigit() }
+        return if (digits.length >= 9) digits.takeLast(9) else digits
+    }
+
+    private fun isSelfContact(contactId: String, contactPhone: String?, myUserId: String?, myPhone: String?): Boolean {
+        val cleanMyId = myUserId?.trim().orEmpty()
+        val cleanMyPhone = cleanPhoneDigits(myPhone)
+        val matchId = cleanMyId.isNotEmpty() && (contactId == cleanMyId || contactId == "user_$cleanMyId" || contactId.removePrefix("user_") == cleanMyId.removePrefix("user_"))
+        val matchPhone = cleanMyPhone.isNotEmpty() && cleanPhoneDigits(contactPhone) == cleanMyPhone
+        return matchId || matchPhone
+    }
+
     override fun getContacts(): Flow<Resource<List<Contact>>> =
-        contactDaoProvider.get().getContacts().map { list -> Resource.Success(list.map { it.toModel() }) }
+        contactDaoProvider.get().getContacts().map { list ->
+            val myUserId = sessionManager.getUserId()
+            val myPhone = sessionManager.currentUser.value?.phoneNumber
+            val filtered = list.filterNot { isSelfContact(it.id, it.phoneNumber, myUserId, myPhone) }
+            Resource.Success(filtered.map { it.toModel() })
+        }
 
     private val syncContactsMutex = Mutex()
 
@@ -1235,11 +1271,14 @@ class ChatRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         syncContactsMutex.withLock {
             try {
+                val myUserId = sessionManager.getUserId()
+                val myPhone = sessionManager.currentUser.value?.phoneNumber
                 val deviceContacts = ContactUtils.getPhoneContactsWithNames(context)
                 val savedContacts = userApi.getSavedContacts().body().orEmpty()
                 if (deviceContacts.isEmpty() && phoneNumbers.isEmpty() && savedContacts.isEmpty()) {
                     val existing = contactDaoProvider.get().getContacts().first()
-                    emit(Resource.Success(existing.map { it.toModel() }))
+                    val filtered = existing.filterNot { isSelfContact(it.id, it.phoneNumber, myUserId, myPhone) }
+                    emit(Resource.Success(filtered.map { it.toModel() }))
                     return@withLock
                 }
 
@@ -1256,24 +1295,27 @@ class ChatRepositoryImpl @Inject constructor(
 
                 if (response.isSuccessful && response.body() != null) {
                     val apiUsers = response.body()!!.contacts
-                    val registeredContacts = apiUsers.map { apiUser ->
-                        val localMatch = apiUser.phone_number?.let { localByPhone[it] }
-                        val savedMatch = apiUser.phone_number?.let { savedByPhone[it] }
-                        Contact(
-                            id = apiUser.id,
-                            username = apiUser.username,
-                            displayName = localMatch?.displayName ?: savedMatch?.name ?: apiUser.display_name,
-                            avatarUrl = formatUrl(apiUser.avatar_url),
-                            phoneNumber = apiUser.phone_number ?: "",
-                            isRegistered = true
-                        )
-                    }
+                    val registeredContacts = apiUsers
+                        .filterNot { isSelfContact(it.id, it.phone_number, myUserId, myPhone) }
+                        .map { apiUser ->
+                            val localMatch = apiUser.phone_number?.let { localByPhone[it] }
+                            val savedMatch = apiUser.phone_number?.let { savedByPhone[it] }
+                            Contact(
+                                id = apiUser.id,
+                                username = apiUser.username,
+                                displayName = localMatch?.displayName ?: savedMatch?.name ?: apiUser.display_name,
+                                avatarUrl = formatUrl(apiUser.avatar_url)
+                                    ?: apiUser.phone_number?.takeIf { it.isNotBlank() }?.let { ContactUtils.getContactPhotoUri(context, it) },
+                                phoneNumber = apiUser.phone_number ?: "",
+                                isRegistered = true
+                            )
+                        }
 
                     val registeredPhones = apiUsers.mapNotNull { it.phone_number }.toSet()
                     val allSavedContacts = (deviceContacts.map { AccountContactDTO(name = it.displayName, phone_number = it.phoneNumber) } + savedContacts)
                         .distinctBy { it.phone_number }
                     val nonRegisteredContacts = allSavedContacts
-                        .filter { it.phone_number.isNotBlank() && it.phone_number !in registeredPhones }
+                        .filter { it.phone_number.isNotBlank() && it.phone_number !in registeredPhones && !isSelfContact("phone:${it.phone_number}", it.phone_number, myUserId, myPhone) }
                         .map { deviceContact ->
                             Contact(
                                 id = "phone:${deviceContact.phone_number}",
@@ -1285,10 +1327,17 @@ class ChatRepositoryImpl @Inject constructor(
                             )
                         }
 
-                    val existingDbContacts = contactDaoProvider.get().getContacts().first().map { it.toModel() }
-                    val mergedContacts = (registeredContacts + nonRegisteredContacts + existingDbContacts).distinctBy { it.id }
+                    val mergedContacts = (registeredContacts + nonRegisteredContacts)
+                        .filterNot { isSelfContact(it.id, it.phoneNumber, myUserId, myPhone) }
+                        .distinctBy { it.id }
 
-                    contactDaoProvider.get().insertContacts(mergedContacts.map { it.toEntity() })
+                    val contactDao = contactDaoProvider.get()
+                    if (mergedContacts.isEmpty()) {
+                        contactDao.clearContacts()
+                    } else {
+                        contactDao.insertContacts(mergedContacts.map { it.toEntity() })
+                        contactDao.deleteContactsExcept(mergedContacts.map { it.id })
+                    }
                     emit(Resource.Success(mergedContacts))
                 } else {
                     emit(Resource.Error("Contact sync failed"))
@@ -1310,14 +1359,30 @@ class ChatRepositoryImpl @Inject constructor(
         for (entity in allChats) {
             if (entity.type == com.tpsk.tj.common.model.ConversationType.DIRECT) {
                 val targetId = entity.otherUserId ?: entity.id
-                val contact = localContacts[targetId]
+                val contact = localContacts[targetId] ?: localContacts[entity.id]
+                val phone = contact?.phoneNumber ?: entity.phoneNumber
+                val contactByPhone = if (contact == null && !phone.isNullOrBlank()) {
+                    val tail = phone.filter { it.isDigit() }.takeLast(9)
+                    localContacts.values.firstOrNull {
+                        tail.length >= 9 && it.phoneNumber.filter { ch -> ch.isDigit() }.takeLast(9) == tail
+                    }
+                } else contact
+                val matched = contactByPhone
                 val name = displayNameResolver.resolve(
-                    com.tpsk.tj.common.model.User(id = targetId, displayName = ""),
-                    contact?.phoneNumber ?: entity.phoneNumber ?: ""
+                    com.tpsk.tj.common.model.User(id = targetId, displayName = matched?.displayName.orEmpty()),
+                    phone ?: ""
                 )
-                val sanitized = sanitizeDisplayName(name, targetId, contact?.phoneNumber ?: entity.phoneNumber)
-                if (sanitized.isNotBlank() && sanitized != entity.senderName) {
-                    updated.add(entity.copy(senderName = sanitized))
+                val sanitized = sanitizeDisplayName(name, targetId, phone)
+                val photo = entity.avatarUrl?.takeIf { it.isNotBlank() }
+                    ?: matched?.avatarUrl?.takeIf { it.isNotBlank() }
+                    ?: phone?.takeIf { it.isNotBlank() }?.let { ContactUtils.getContactPhotoUri(context, it) }
+                if ((sanitized.isNotBlank() && sanitized != entity.senderName) || (!photo.isNullOrBlank() && photo != entity.avatarUrl)) {
+                    updated.add(entity.copy(
+                        senderName = sanitized.ifBlank { entity.senderName },
+                        avatarUrl = photo ?: entity.avatarUrl,
+                        phoneNumber = phone ?: entity.phoneNumber,
+                        otherUserId = entity.otherUserId ?: matched?.id
+                    ))
                 }
             }
         }
@@ -1330,22 +1395,48 @@ class ChatRepositoryImpl @Inject constructor(
             val response = chatApi.initiateDM(InitiateDMRequest(contactId))
             if (response.isSuccessful && response.body() != null) {
                 val conversationId = response.body()!!.conversation_id
-                val contact = contactDaoProvider.get().getContactById(contactId)
+                val contactDao = contactDaoProvider.get()
+                val contact = contactDao.getContactById(contactId)
+                    ?: contactDao.getContacts().first().firstOrNull { stored ->
+                        val tail = cleanPhoneDigits(stored.phoneNumber)
+                        tail.length >= 9 && tail == cleanPhoneDigits(contactId)
+                    }
                 val chatDao = chatDaoProvider.get()
+                val myPhone = sessionManager.currentUser.value?.phoneNumber
+                if (isSelfContact(contactId, contact?.phoneNumber, sessionManager.getUserId(), myPhone)) {
+                    emit(Resource.Error("That is your own number"))
+                    return@flow
+                }
+                chatDao.getChats().first()
+                    .filter { chat ->
+                        chat.id != conversationId && (
+                            chat.otherUserId == contactId ||
+                            chat.otherUserId == contact?.id ||
+                            phonesMatch(chat.phoneNumber, contact?.phoneNumber) ||
+                            phonesMatch(chat.phoneNumber, contactId)
+                        )
+                    }
+                    .forEach { hideChatLocally(it.id) }
 
+                val knownPhone = contact?.phoneNumber?.takeIf { it.isNotBlank() }
+                    ?: GlobalCallState.getContactPhone(contactId).orEmpty()
+                val knownName = contact?.displayName?.takeIf { it.isNotBlank() }
+                    ?: GlobalCallState.getContactName(contactId).orEmpty()
                 val resolvedName = displayNameResolver.resolve(
-                    com.tpsk.tj.common.model.User(id = contactId, displayName = contact?.displayName ?: ""),
-                    contact?.phoneNumber ?: ""
+                    com.tpsk.tj.common.model.User(id = contactId, displayName = knownName),
+                    knownPhone
                 )
-                val sanitizedName = sanitizeDisplayName(resolvedName, contactId, contact?.phoneNumber)
+                val sanitizedName = sanitizeDisplayName(resolvedName.ifBlank { knownName }, contactId, knownPhone)
 
                 val newChat = ChatEntity(
                     id = conversationId, type = com.tpsk.tj.common.model.ConversationType.DIRECT,
                     senderName = sanitizedName, lastMessage = "",
                     timestamp = System.currentTimeMillis(), unreadCount = 0, avatarUrl = contact?.avatarUrl,
                     otherUserId = contactId, isOnline = false, isMuted = false, isPinned = false, isTyping = false,
-                    phoneNumber = contact?.phoneNumber
+                    phoneNumber = knownPhone.takeIf { it.isNotBlank() }
                 )
+                unhideChatLocally(conversationId)
+                unhideChatLocally(contactId)
                 chatDao.insertChats(listOf(newChat))
                 webSocketManager.send("subscribe", buildJsonObject { put("topic", "chat:$conversationId") })
                 emit(Resource.Success(conversationId))
@@ -1468,8 +1559,33 @@ class ChatRepositoryImpl @Inject constructor(
     }
     override suspend fun clearAllChats() {
         val dao = chatDaoProvider.get()
+        dao.getChats().first().forEach { hideChatLocally(it.id) }
         dao.clearAllMessages()
         dao.clearChats()
+    }
+
+    private suspend fun backfillMissingAvatars(chats: List<ChatEntity>) {
+        val chatDao = chatDaoProvider.get()
+        for (chat in chats.filter { it.avatarUrl.isNullOrBlank() }.take(8)) {
+            val otherId = chat.otherUserId?.takeIf { it.isNotBlank() } ?: continue
+            val remote = try {
+                val response = userApi.getUserById(otherId)
+                if (response.isSuccessful) formatUrl(response.body()?.user?.avatarUrl) else null
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                null
+            }
+            val photo = remote?.takeIf { it.isNotBlank() }
+                ?: chat.phoneNumber?.takeIf { it.isNotBlank() }?.let { ContactUtils.getContactPhotoUri(context, it) }
+            if (!photo.isNullOrBlank()) {
+                chatDao.updateAvatar(chat.id, photo)
+                contactDaoProvider.get().getContactById(otherId)?.let { contact ->
+                    if (contact.avatarUrl.isNullOrBlank()) {
+                        contactDaoProvider.get().insertContacts(listOf(contact.copy(avatarUrl = photo)))
+                    }
+                }
+            }
+        }
     }
     override fun getArchivedChats(): Flow<Resource<List<ChatMessage>>> = chatDaoProvider.get().getArchivedChats().map { list -> Resource.Success(list.map { it.toModel() }) }
     override fun getCallLogs(): Flow<Resource<List<CallLog>>> = callLogDaoProvider.get().getCallLogs().map { list -> Resource.Success(list.map { it.toModel() }) }

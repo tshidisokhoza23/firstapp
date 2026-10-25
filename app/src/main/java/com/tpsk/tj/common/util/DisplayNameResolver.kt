@@ -16,7 +16,7 @@ fun isIdString(text: String?, id: String? = null): Boolean {
     val trimmed = text.trim()
     val lower = trimmed.lowercase()
 
-    if (lower == "unknown" || lower == "null" || lower == "undefined" || lower == "none" || lower == "new chat" || lower == "user" || lower == "mingle user") {
+    if (lower == "unknown" || lower == "null" || lower == "undefined" || lower == "none" || lower == "new chat" || lower == "chat" || lower == "user" || lower == "mingle user") {
         return true
     }
 
