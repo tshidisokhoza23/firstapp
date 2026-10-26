@@ -226,7 +226,7 @@ class StoryRepositoryImpl @Inject constructor(
             val old = existing.find { sameUser(it.userId, it.id, key) }
             val pending = old?.stories.orEmpty().filter { item ->
                 item.id.startsWith("local_") &&
-                    bundle.stories.none { server -> server.id == item.id }
+                    bundle.stories.none { server -> server.id == item.id || samePostedStory(item, server) }
             }
             val stories = (bundle.stories + pending)
                 .filter { it.createdAt == 0L || it.createdAt >= cutoff }
@@ -288,7 +288,9 @@ class StoryRepositoryImpl @Inject constructor(
             durationMs = apiItem?.duration_ms ?: 5000
         )
         val existing = storyDao.getStoriesOnce().find { it.userId == myId || it.id == myId }
-        val mergedStories = ((existing?.stories ?: emptyList()) + item).distinctBy { it.id }.sortedBy { it.createdAt }
+        val mergedStories = ((existing?.stories ?: emptyList()).filterNot { local ->
+            local.id.startsWith("local_") && samePostedStory(local, item)
+        } + item).distinctBy { it.id }.sortedBy { it.createdAt }
         storyDao.insertStories(
             listOf(
                 StoryEntity(
@@ -305,6 +307,13 @@ class StoryRepositoryImpl @Inject constructor(
                 )
             )
         )
+    }
+
+    private fun samePostedStory(local: StoryItem, server: StoryItem): Boolean {
+        val sameUrl = !local.contentUrl.isNullOrBlank() && local.contentUrl == server.contentUrl
+        val sameContent = local.content.isNotBlank() && local.content == server.content &&
+            kotlin.math.abs(local.createdAt - server.createdAt) < 120_000
+        return sameUrl || sameContent
     }
 
     private suspend fun removeStoryItem(storyId: String) {

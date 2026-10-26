@@ -12,6 +12,7 @@ data class ChatUiState(
     val archivedChats: Resource<List<ChatMessage>> = Resource.Loading(emptyList()),
     val messages: Resource<List<Message>> = Resource.Loading(emptyList()),
     val isChatsFetching: Boolean = false,
+    val chatsReady: Boolean = false,
     val starredMessages: Resource<List<Message>> = Resource.Loading(),
     val chatSearchResults: List<Message> = emptyList(),
     val selectedContactsForGroup: List<Contact> = emptyList(),

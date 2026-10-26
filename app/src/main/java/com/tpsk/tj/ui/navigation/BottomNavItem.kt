@@ -16,7 +16,7 @@ sealed class BottomNavItem(
     object Social : BottomNavItem("social_tab", "Social", Icons.Default.Public, 1)
     object Scroll : BottomNavItem("scroll_tab", "Scroll", Icons.Default.Videocam, 2)
     object Jobs : BottomNavItem("jobs_tab", "Job", Icons.Default.Work, 3)
-    object Mingle : BottomNavItem("mingle_tab", "Court", Icons.Outlined.AutoAwesome, 4)
+    object Mingle : BottomNavItem("mingle_tab", "Friends", Icons.Outlined.AutoAwesome, 4)
     object Stream : BottomNavItem("stream_tab", "Stream", Icons.Default.MusicNote, 5)
     object Ride : BottomNavItem("ride_tab", "Ride", Icons.Default.DirectionsCar, 6)
     object More : BottomNavItem("more_tab", "More", Icons.Default.MoreHoriz, 7)

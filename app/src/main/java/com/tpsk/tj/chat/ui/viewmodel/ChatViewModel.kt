@@ -103,7 +103,10 @@ class ChatViewModel @Inject constructor(
         fetchCurrentUser()
         observeLocalDatabase()
         observeRealtimeEvents()
-        fetchChats()
+        viewModelScope.launch {
+            repository.getChats().first { it.data != null }
+            fetchChats()
+        }
         refreshBlockedUsers()
     }
 
@@ -205,31 +208,31 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    private var lastFullChatSyncAt = 0L
+    private var chatSyncJob: kotlinx.coroutines.Job? = null
+
     fun fetchChats() {
-        viewModelScope.launch {
-            if (_uiState.value.chats.data.isNullOrEmpty()) {
-                _uiState.update { it.copy(isChatsFetching = true) }
-            }
-            
-            val syncJob = launch {
-                repository.syncChats().collect { res ->
-                    Log.d("ChatViewModel", "SyncChats result: ${res::class.simpleName}")
-                    if (res is Resource.Error) {
-                        _uiState.update { it.copy(error = res.message, isChatsFetching = false) }
-                    } else if (res is Resource.Success) {
-                        _uiState.update { it.copy(isChatsFetching = false) }
+        val now = System.currentTimeMillis()
+        if (chatSyncJob?.isActive == true) return
+        val runFullSync = now - lastFullChatSyncAt >= 120_000L
+        chatSyncJob = viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isChatsFetching = false) }
+                if (runFullSync) {
+                    repository.syncChats().collect { res ->
+                        Log.d("ChatViewModel", "SyncChats result: ${res::class.simpleName}")
+                        if (res is Resource.Error) {
+                            _uiState.update { it.copy(error = res.message) }
+                        } else if (res is Resource.Success) {
+                            lastFullChatSyncAt = System.currentTimeMillis()
+                        }
                     }
                 }
                 repository.syncDelta().collect { delta ->
                     Log.d("ChatViewModel", "SyncDelta result: ${delta::class.simpleName}")
                 }
-            }
-            
-            // Safety timeout: 15s limit for the spinner
-            delay(15000)
-            if (syncJob.isActive) {
-                Log.w("ChatViewModel", "Sync timeout reached, hiding spinner")
-                _uiState.update { it.copy(isChatsFetching = false) }
+            } finally {
+                _uiState.update { it.copy(chatsReady = true) }
             }
         }
     }

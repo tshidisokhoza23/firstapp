@@ -25,7 +25,10 @@ class ContestRepository @Inject constructor(
     private val socialApi: SocialApi
 ) {
     suspend fun list(query: String, sort: String): Result<List<ApiContest>> = runCatching {
-        contestApi.list(query.ifBlank { null }, sort).requireBody("Could not load contests").contests
+        val rows = contestApi.list(query.ifBlank { null }, sort).requireBody("Could not load contests").contests
+            .map { it.withFormattedMedia() }
+        com.tpsk.tj.media.ui.components.ContestTags.addAll(rows.map { it.hashtag })
+        rows
     }
 
     suspend fun create(title: String, description: String, hashtag: String, limit: Int): Result<ApiContest> = runCatching {
@@ -42,7 +45,10 @@ class ContestRepository @Inject constructor(
     suspend fun feed(hashtag: String): Result<ContestFeed> = runCatching {
         val clean = hashtag.removePrefix("#").trim()
         val detail = contestApi.get(clean).requireBody("Could not open contest")
-        val posts = runCatching {
+        val leaderboard = detail.leaderboard.map { entry ->
+            entry.copy(avatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(entry.avatarUrl))
+        }
+        val tagged = runCatching {
             socialApi.getPosts(
                 page = 1,
                 following = false,
@@ -51,13 +57,22 @@ class ContestRepository @Inject constructor(
                 hashtag = clean
             ).body().orEmpty().map { mapApiPost(it) }
         }.getOrDefault(emptyList())
-        val votesByPost = detail.leaderboard.associate { it.postId to it.votes }
+        val byId = tagged.associateBy { it.id }.toMutableMap()
+        leaderboard.forEach { entry ->
+            if (entry.postId.isNotBlank() && byId[entry.postId] == null) {
+                val fetched = runCatching { socialApi.getPost(entry.postId).body()?.let { mapApiPost(it) } }.getOrNull()
+                if (fetched != null) byId[entry.postId] = fetched
+            }
+        }
+        val orderedIds = leaderboard.map { it.postId }.filter { it.isNotBlank() }
+        val votesByPost = leaderboard.associate { it.postId to it.votes }
+        val posts = orderedIds.mapNotNull { byId[it] }
         ContestFeed(
-            contest = detail.contest,
-            leaderboard = detail.leaderboard,
+            contest = detail.contest?.withFormattedMedia(),
+            leaderboard = leaderboard,
             posts = posts.map { post ->
                 post.copy(
-                    isContest = detail.contest != null || post.isContest,
+                    isContest = true,
                     contestVotes = votesByPost[post.id] ?: post.contestVotes
                 )
             }
@@ -96,3 +111,8 @@ class ContestRepository @Inject constructor(
 }
 
 data class VoteResult(val votes: Int, val points: Int)
+
+private fun ApiContest.withFormattedMedia(): ApiContest = copy(
+    previewAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(previewAvatarUrl),
+    coverUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(coverUrl)
+)

@@ -34,14 +34,16 @@ class JobDetailViewModel @Inject constructor(
 
     fun loadJob(jobId: String) {
         viewModelScope.launch {
-            repository.getJobs().collect { resource ->
-                if (resource is Resource.Success) {
-                    val j = resource.data?.find { it.id == jobId }
-                    if (j != null) _job.value = Resource.Success(j)
-                    else _job.value = Resource.Error("Job not found")
-                } else if (resource is Resource.Error) {
-                    _job.value = Resource.Error(resource.message ?: "Failed to load")
-                }
+            repository.getJob(jobId).collect { _job.value = it }
+        }
+    }
+
+    fun toggleSave() {
+        val current = (_job.value as? Resource.Success)?.data ?: return
+        viewModelScope.launch {
+            val next = !current.isSaved
+            if (repository.setJobSaved(current.id, next) is Resource.Success) {
+                _job.value = Resource.Success(current.copy(isSaved = next))
             }
         }
     }

@@ -197,7 +197,7 @@ fun ChatTopBar(
                             )
                             val presenceText = when {
                                 isTyping -> "typing..."
-                                chat.type == ConversationType.MINGLE -> "🔒 Secret Mingle Chat"
+                                chat.type == ConversationType.MINGLE -> "🔒 Secret Friends Chat"
                                 chat.type == ConversationType.CHANNEL -> "channel · tap for details"
                                 chat.type == ConversationType.GROUP || chat.isGroup -> "group · tap for info"
                                 chat.isOnline -> "online"

@@ -34,23 +34,31 @@ class AdMobManagerImpl : AdManager {
             onAdFailed("Google Play services unavailable")
             return
         }
-        val adLoader = AdLoader.Builder(context, adUnitId)
-            .forNativeAd { nativeAd ->
-                nativeAd.setOnPaidEventListener { value ->
-                    onAdRevenuePaid?.invoke(value.valueMicros / 1000000.0)
+        try {
+            val adLoader = AdLoader.Builder(context, adUnitId)
+                .forNativeAd { nativeAd ->
+                    try {
+                        nativeAd.setOnPaidEventListener { value ->
+                            onAdRevenuePaid?.invoke(value.valueMicros / 1000000.0)
+                        }
+                    } catch (_: RuntimeException) {
+                    }
+                    onAdLoaded(nativeAd)
                 }
-                onAdLoaded(nativeAd)
-            }
-            .withAdListener(object : AdListener() {
-                override fun onAdFailedToLoad(error: LoadAdError) {
-                    android.util.Log.w("AdMobManager", "Native ad load failed ($adUnitId): ${error.message}")
-                    onAdFailed(error.message)
-                }
-            })
-            .withNativeAdOptions(feedNativeAdOptions())
-            .build()
+                .withAdListener(object : AdListener() {
+                    override fun onAdFailedToLoad(error: LoadAdError) {
+                        android.util.Log.w("AdMobManager", "Native ad load failed ($adUnitId): ${error.message}")
+                        onAdFailed(error.message)
+                    }
+                })
+                .withNativeAdOptions(feedNativeAdOptions())
+                .build()
 
-        adLoader.loadAd(AdRequest.Builder().build())
+            adLoader.loadAd(AdRequest.Builder().build())
+        } catch (e: RuntimeException) {
+            android.util.Log.w("AdMobManager", "Native ad request skipped", e)
+            onAdFailed(e.message ?: "Native ad request failed")
+        }
     }
 
     override fun loadShortsNativeAd(
@@ -74,10 +82,14 @@ class AdMobManagerImpl : AdManager {
             .setMediaAspectRatio(NativeAdOptions.NATIVE_MEDIA_ASPECT_RATIO_PORTRAIT)
             .build()
 
+        try {
         val adLoader = AdLoader.Builder(context, adUnitId)
             .forNativeAd { nativeAd ->
-                nativeAd.setOnPaidEventListener { value ->
-                    onAdRevenuePaid?.invoke(value.valueMicros / 1000000.0)
+                try {
+                    nativeAd.setOnPaidEventListener { value ->
+                        onAdRevenuePaid?.invoke(value.valueMicros / 1000000.0)
+                    }
+                } catch (_: RuntimeException) {
                 }
                 onAdLoaded(nativeAd)
             }
@@ -91,6 +103,10 @@ class AdMobManagerImpl : AdManager {
             .build()
 
         adLoader.loadAd(AdRequest.Builder().build())
+        } catch (e: RuntimeException) {
+            android.util.Log.w("AdMobManager", "Shorts native ad request skipped", e)
+            onAdFailed(e.message ?: "Native ad request failed")
+        }
     }
 
     override fun loadBannerAd(
@@ -264,9 +280,13 @@ class AdMobManagerImpl : AdManager {
     }
 
     override fun destroyAd(adObject: Any?) {
-        when (adObject) {
-            is NativeAd -> adObject.destroy()
-            is AdView -> adObject.destroy()
+        try {
+            when (adObject) {
+                is NativeAd -> adObject.destroy()
+                is AdView -> adObject.destroy()
+            }
+        } catch (e: RuntimeException) {
+            android.util.Log.w("AdMobManager", "Ad destroy skipped", e)
         }
     }
 

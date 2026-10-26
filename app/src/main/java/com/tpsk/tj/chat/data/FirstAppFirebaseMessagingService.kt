@@ -81,8 +81,49 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
                 "social_like", "social_comment", "social_follow", "social_notification", "social" -> {
                     if (!isAppInForeground()) handleSocialNotification(data)
                 }
+                "ride_request" -> handleRideRequest(data)
+                "ride_update" -> handleRideUpdate(data)
+                "driver_payout" -> handleRideUpdate(data, openDrive = true)
             }
         }
+    }
+
+    private fun handleRideRequest(data: Map<String, String>) {
+        val tripId = data["trip_id"] ?: return
+        com.tpsk.tj.drive.ui.RideRequestAlerts.alert(
+            this,
+            com.tpsk.tj.drive.model.RideRequest(
+                id = tripId,
+                passengerName = "Rider",
+                pickupAddress = data["body"] ?: "New ride request",
+                destinationAddress = ""
+            )
+        )
+    }
+
+    private fun handleRideUpdate(data: Map<String, String>, openDrive: Boolean = false) {
+        val title = data["title"] ?: "TJ Ride"
+        val body = data["body"] ?: "Your ride was updated"
+        createMessagesChannel()
+        val launchIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(if (openDrive) "open_drive" else "open_ride", true)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            ("ride_" + (data["trip_id"] ?: title)).hashCode(),
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, CHANNEL_MESSAGES)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(("ride_" + (data["trip_id"] ?: title)).hashCode(), notification)
     }
 
     private fun handleSocialNotification(data: Map<String, String>) {

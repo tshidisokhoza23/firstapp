@@ -101,7 +101,7 @@ fun MingleMessageRequestsScreen(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "When someone sends you a Mingle intro, it will wait here.",
+                        text = "When someone sends you a Friends intro, it will wait here.",
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
@@ -125,7 +125,7 @@ fun MingleMessageRequestsScreen(
                                     Screen.Chat.createRoute(
                                         conversationId,
                                         type = "mingle",
-                                        displayName = intro.sender_name ?: "Mingle"
+                                        displayName = intro.sender_name ?: "Friends"
                                     )
                                 ) {
                                     popUpTo(Screen.MingleMessageRequests.route) { inclusive = true }

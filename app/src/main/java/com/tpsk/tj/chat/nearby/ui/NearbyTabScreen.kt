@@ -14,9 +14,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,6 +25,10 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +67,24 @@ fun NearbyTabScreen(
     var showCityPickerSheet by remember { mutableStateOf(false) }
     var showNearbyDrawerSheet by remember { mutableStateOf(false) }
     var chatRequestPostTarget by remember { mutableStateOf<NearbyPost?>(null) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                nearbyViewModel.refreshLocationAndFeed()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(8_000)
+            nearbyViewModel.refreshLocationAndFeed()
+        }
+    }
 
     LaunchedEffect(showCityPickerTrigger) {
         if (showCityPickerTrigger > 0) {
@@ -287,7 +310,11 @@ fun NearbyTabScreen(
                                     )
                                     Spacer(modifier = Modifier.height(6.dp))
                                     Text(
-                                        text = "Be the first to start the conversation!",
+                                        text = if (uiState.areaViewCount > 0) {
+                                            "${uiState.areaViewCount} people around ${uiState.coarseAreaName} are checking in! Be the first to start a conversation here."
+                                        } else {
+                                            "Be the first to start the conversation!"
+                                        },
                                         fontSize = 13.sp,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
@@ -316,11 +343,7 @@ fun NearbyTabScreen(
                             post = post,
                             currentUserAvatarUrl = currentUser?.avatarUrl,
                             currentUserId = authorId,
-                            onAuthorClick = {
-                                if (post.userId.isNotBlank()) {
-                                    navController.navigate(Screen.UserProfile.createRoute(post.userId))
-                                }
-                            },
+                            onAuthorClick = { },
                             onLike = { nearbyViewModel.toggleLike(post.id) },
                             onReply = {
                                 navController.navigate(
@@ -798,18 +821,7 @@ fun NearbyPostCard(
 
             if (post.imageUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(post.imageUrls) { url ->
-                        AsyncImage(
-                            model = url,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(RoundedCornerShape(10.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    }
-                }
+                NearbyPostImages(post.imageUrls)
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -905,6 +917,29 @@ fun NearbyPostCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun NearbyPostImages(imageUrls: List<String>) {
+    if (imageUrls.isEmpty()) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        imageUrls.forEach { url ->
+            AsyncImage(
+                model = url,
+                contentDescription = "Post photo",
+                modifier = Modifier
+                    .height(180.dp)
+                    .width(if (imageUrls.size == 1) 280.dp else 180.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
         }
     }
 }

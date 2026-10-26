@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import com.tpsk.tj.common.ui.components.NativeAdCard
+import com.tpsk.tj.common.data.ads.AdUnitConfig
 import com.tpsk.tj.media.ui.viewmodel.NewsViewModel
 import com.tpsk.tj.media.util.NewsCustomTabsHelper
 
@@ -47,7 +47,7 @@ data class NewsArticle(
 
 sealed interface NewsFeedItem {
     data class ArticleItem(val article: NewsArticle) : NewsFeedItem
-    data class NativeAdItem(val adObject: Any) : NewsFeedItem
+    data class AdSlotItem(val slotIndex: Int) : NewsFeedItem
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,13 +118,13 @@ fun NewsScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 80.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     itemsIndexed(feedItems, key = { index, item ->
                         when (item) {
                             is NewsFeedItem.ArticleItem -> "article_${item.article.id}"
-                            is NewsFeedItem.NativeAdItem -> "ad_${item.adObject.hashCode()}_$index"
+                            is NewsFeedItem.AdSlotItem -> "news_ad_${item.slotIndex}"
                         }
                     }) { _, item ->
                         when (item) {
@@ -153,10 +153,12 @@ fun NewsScreen(
                                     }
                                 )
                             }
-                            is NewsFeedItem.NativeAdItem -> {
-                                NativeAdCard(
-                                    adObject = item.adObject,
-                                    layoutResId = com.tpsk.tj.R.layout.native_ad_news
+                            is NewsFeedItem.AdSlotItem -> {
+                                com.tpsk.tj.common.ui.components.FeedNativeAd(
+                                    adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
+                                    slotKey = "news-ad-${item.slotIndex}",
+                                    layoutResId = com.tpsk.tj.R.layout.native_ad_news,
+                                    modifier = Modifier.padding(vertical = 4.dp)
                                 )
                             }
                         }

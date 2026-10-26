@@ -168,12 +168,12 @@ private fun MyStoryThumbnail(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier.size(68.dp),
+            modifier = Modifier.size(62.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .clickable(onClick = {
                         if (story.stories.isNotEmpty()) {
@@ -228,11 +228,10 @@ private fun MyStoryThumbnail(
             // Small Add button overlay
             Box(
                 modifier = Modifier
-                    .size(22.dp)
+                    .size(20.dp)
                     .align(Alignment.BottomEnd)
-                    .offset(x = 2.dp, y = 2.dp)
                     .background(MaterialTheme.colorScheme.background, CircleShape)
-                    .padding(2.dp)
+                    .padding(1.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -282,12 +281,12 @@ private fun AddStoryItem(
     ) {
         Box(
             modifier = Modifier
-                .size(68.dp),
+                .size(62.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                     .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), CircleShape),
@@ -297,7 +296,7 @@ private fun AddStoryItem(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Add Story",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -381,12 +380,12 @@ private fun StoryThumbnail(story: UserStory, onClick: () -> Unit) {
         )
     ) {
         Box(
-            modifier = Modifier.size(68.dp),
+            modifier = Modifier.size(62.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .border(
                         width = 2.dp,

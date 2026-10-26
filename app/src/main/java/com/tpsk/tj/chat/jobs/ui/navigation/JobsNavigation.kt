@@ -11,6 +11,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.tpsk.tj.chat.jobs.ui.screens.*
 import com.tpsk.tj.chat.jobs.ui.viewmodel.*
+import androidx.compose.foundation.layout.fillMaxSize
 import com.tpsk.tj.ui.navigation.Screen
 import com.tpsk.tj.home.ui.viewmodel.MainViewModel
 import com.tpsk.tj.common.util.Resource
@@ -28,6 +29,13 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
     composable(Screen.PostJob.route) {
         PostJobScreen(onBack = { navController.popBackStack() })
     }
+
+    composable(Screen.MyJobs.route) {
+        MyJobsScreen(
+            onBack = { navController.popBackStack() },
+            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it)) }
+        )
+    }
     
     composable(Screen.Applications.route) {
         val jobApplicationsViewModel: JobApplicationsViewModel = hiltViewModel()
@@ -35,9 +43,24 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
             onBack = { navController.popBackStack() },
             onViewJobDetails = { jobId -> navController.navigate(Screen.JobDetail.createRoute(jobId)) },
             onContactRecruiter = { id ->
-                navController.navigate(Screen.Chat.createRoute(id, type = "job_chat"))
+                if (id.isBlank()) {
+                    android.widget.Toast.makeText(
+                        navController.context,
+                        "No recruiter chat for this application yet",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    navController.navigate(Screen.Chat.createRoute(id, type = "job_chat"))
+                }
             },
-            onSetReminder = { application -> /* Handle reminder */ },
+            onSetReminder = { application ->
+                val intent = android.content.Intent(android.content.Intent.ACTION_INSERT).apply {
+                    data = android.provider.CalendarContract.Events.CONTENT_URI
+                    putExtra(android.provider.CalendarContract.Events.TITLE, "Follow up: ${application.jobTitle}")
+                    putExtra(android.provider.CalendarContract.Events.DESCRIPTION, application.companyName)
+                }
+                runCatching { navController.context.startActivity(intent) }
+            },
             viewModel = jobApplicationsViewModel
         )
     }
@@ -82,24 +105,50 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
             }
         }
         
-        val jobStateValue = jobState
-        if (jobStateValue is Resource.Success) {
-            val currentJob = jobStateValue.data!!
-            JobDetailScreen(
-                job = currentJob,
-                onBack = { navController.popBackStack() },
-                onExternalApplyClick = { id ->
-                    jobDetailViewModel.markClickedExternal(id)
-                },
-                onReportJob = { id, reason -> jobDetailViewModel.reportJob(id, reason) },
-                onApply = {
-                    if (currentJob.isApplied || currentJob.hasAppliedInternal) {
-                        android.widget.Toast.makeText(context, "Already applied", android.widget.Toast.LENGTH_SHORT).show()
-                    } else {
-                        jobDetailViewModel.applyForJob(currentJob.id, currentJob.title, currentJob.companyName)
+        when (val jobStateValue = jobState) {
+            is Resource.Success -> {
+                val currentJob = jobStateValue.data ?: return@composable
+                JobDetailScreen(
+                    job = currentJob,
+                    onBack = { navController.popBackStack() },
+                    onSave = { jobDetailViewModel.toggleSave() },
+                    onExternalApplyClick = { id ->
+                        jobDetailViewModel.markClickedExternal(id)
+                    },
+                    onReportJob = { id, reason -> jobDetailViewModel.reportJob(id, reason) },
+                    onApply = {
+                        val externalUrl = currentJob.trackingApplyUrl
+                        if (currentJob.isExternal && !externalUrl.isNullOrBlank()) {
+                            jobDetailViewModel.markClickedExternal(currentJob.id)
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(externalUrl)))
+                        } else if (currentJob.isApplied || currentJob.hasAppliedInternal) {
+                            android.widget.Toast.makeText(context, "Already applied", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            jobDetailViewModel.applyForJob(currentJob.id, currentJob.title, currentJob.companyName)
+                        }
+                    }
+                )
+            }
+            is Resource.Error -> {
+                androidx.compose.foundation.layout.Column(
+                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                ) {
+                    androidx.compose.material3.Text(jobStateValue.message ?: "Could not load this job")
+                    androidx.compose.material3.Button(onClick = { jobDetailViewModel.loadJob(jobId) }) {
+                        androidx.compose.material3.Text("Retry")
                     }
                 }
-            )
+            }
+            else -> {
+                androidx.compose.foundation.layout.Box(
+                    modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator()
+                }
+            }
         }
     }
 }

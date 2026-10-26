@@ -908,11 +908,9 @@ fun PostSideBar(
 
 @Composable
 fun FeedNativeAdCard(adManager: AdManager, adUnitId: String, post: Post) {
-    com.tpsk.tj.common.ui.components.DynamicAdCard(
-        adManager = adManager,
+    com.tpsk.tj.common.ui.components.FeedNativeAd(
         adUnitId = adUnitId.ifBlank { com.tpsk.tj.common.data.ads.AdUnitConfig.NATIVE_POSTS_ID },
         slotKey = "post_ad_${post.id}",
-        reserveSlot = false,
         layoutResId = com.tpsk.tj.R.layout.native_ad_social
     )
 }

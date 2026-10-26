@@ -14,13 +14,18 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.tpsk.tj.R
+import com.tpsk.tj.drive.data.network.RideEvent
 import com.tpsk.tj.drive.domain.repository.DriveRepository
+import com.tpsk.tj.drive.ui.RideRequestAlerts
+import com.tpsk.tj.common.util.Resource
 import com.google.android.gms.location.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -37,6 +42,11 @@ class DriverLocationService : Service() {
     private lateinit var locationCallback: LocationCallback
 
     private val binder = LocalBinder()
+    private var lastLat = 0.0
+    private var lastLng = 0.0
+    private var watchingRequests = false
+    private var lastPresenceAt = 0L
+    var onMoved: ((Double, Double) -> Unit)? = null
 
     inner class LocalBinder : Binder() {
         fun getService(): DriverLocationService = this@DriverLocationService
@@ -51,6 +61,9 @@ class DriverLocationService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 val location = locationResult.lastLocation ?: return
+                lastLat = location.latitude
+                lastLng = location.longitude
+                onMoved?.invoke(location.latitude, location.longitude)
                 updateLocationOnServer(location)
             }
         }
@@ -80,8 +93,57 @@ class DriverLocationService : Service() {
             }
         }
         startLocationUpdates()
+        repository.connectRideSocket()
+        if (!watchingRequests) {
+            watchingRequests = true
+            serviceScope.launch { listenForRequests() }
+            serviceScope.launch { pollRequests() }
+        }
 
         return START_STICKY
+    }
+
+    private suspend fun listenForRequests() {
+        repository.getRideEvents().collect { event ->
+            when (event) {
+                is RideEvent.RequestReceived -> RideRequestAlerts.alert(
+                    this,
+                    com.tpsk.tj.drive.model.RideRequest(
+                        id = event.tripId,
+                        passengerName = event.passengerName,
+                        pickupAddress = event.pickup,
+                        destinationAddress = event.dest,
+                        fare = event.fare,
+                        pickupLat = event.pickupLat,
+                        pickupLng = event.pickupLng,
+                        destLat = event.destLat,
+                        destLng = event.destLng
+                    )
+                )
+                is RideEvent.RequestClosed -> RideRequestAlerts.stopIf(this, event.tripId)
+                else -> Unit
+            }
+        }
+    }
+
+    private suspend fun pollRequests() {
+        while (serviceScope.isActive) {
+            val lat = lastLat
+            val lng = lastLng
+            if (lat != 0.0 || lng != 0.0) {
+                repository.getAvailableRequests(lat, lng).collect { res ->
+                    if (res is Resource.Success) {
+                        val next = res.data?.firstOrNull { !RideRequestAlerts.isDeclined(it.id) }
+                        if (next != null) {
+                            RideRequestAlerts.alert(this, next)
+                        } else if (res.data.isNullOrEmpty()) {
+                            RideRequestAlerts.stop(this)
+                        }
+                    }
+                }
+            }
+            delay(3000)
+        }
     }
 
     private fun startLocationUpdates() {
@@ -103,6 +165,11 @@ class DriverLocationService : Service() {
     private fun updateLocationOnServer(location: Location) {
         serviceScope.launch {
             repository.updateOnlineStatus(true, location.latitude, location.longitude).collect { }
+            val now = System.currentTimeMillis()
+            if (now - lastPresenceAt >= 60_000) {
+                lastPresenceAt = now
+                repository.reportPresence(location.latitude, location.longitude).collect { }
+            }
         }
     }
 
@@ -130,6 +197,7 @@ class DriverLocationService : Service() {
     }
 
     override fun onDestroy() {
+        RideRequestAlerts.stop(this)
         fusedLocationClient.removeLocationUpdates(locationCallback)
         serviceJob.cancel()
         serviceScope.cancel()

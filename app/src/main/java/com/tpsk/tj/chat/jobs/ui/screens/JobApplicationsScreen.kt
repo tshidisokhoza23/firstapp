@@ -81,7 +81,7 @@ fun JobApplicationsScreen(
                         onViewJobDetails = { onViewJobDetails(application.jobId) },
                         onWithdrawApplication = { viewModel.withdrawApplication(application.id) },
                         onContactRecruiter = {
-                            onContactRecruiter(application.conversationId ?: application.jobId)
+                            onContactRecruiter(application.conversationId.orEmpty())
                         },
                     ) { onSetReminder(application) }
                 }

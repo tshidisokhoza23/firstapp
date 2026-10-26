@@ -33,11 +33,12 @@ fun JobItem(
     job: Job,
     onClick: () -> Unit = {},
     onLikeClick: () -> Unit = {},
-    onShareClick: () -> Unit = {}
+    onShareClick: () -> Unit = {},
+    onSaveClick: () -> Unit = {}
 ) {
     var isLiked by remember(job.id) { mutableStateOf(false) }
     var likeCount by remember(job.id) { mutableIntStateOf(0) }
-    var isSaved by remember(job.id) { mutableStateOf(job.isSaved) }
+    var isSaved by remember(job.id, job.isSaved) { mutableStateOf(job.isSaved) }
 
     val handle = remember(job.companyName) {
         job.companyName.lowercase().replace(Regex("[^a-z0-9]"), "")
@@ -352,7 +353,7 @@ fun JobItem(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Views ${if (job.viewsCount > 0) job.viewsCount else 12}",
+                    text = "Views ${job.viewsCount}",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -363,7 +364,10 @@ fun JobItem(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable { isSaved = !isSaved }
+                    .clickable {
+                        isSaved = !isSaved
+                        onSaveClick()
+                    }
                     .padding(4.dp)
             ) {
                 Icon(

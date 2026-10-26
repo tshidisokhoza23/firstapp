@@ -181,7 +181,8 @@ private fun FeedPooledAd(
                 modifier = Modifier.fillMaxWidth(),
                 layoutResId = layoutResId,
                 playMedia = false,
-                cornerRadius = 0
+                cornerRadius = 0,
+                fillParent = false
             )
         } else if (reserveSlot) {
             NativeAdShimmer(modifier = Modifier.fillMaxWidth().height(280.dp))

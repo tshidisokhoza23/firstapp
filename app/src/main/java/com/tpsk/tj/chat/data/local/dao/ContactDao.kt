@@ -24,6 +24,9 @@ interface ContactDao {
     @Query("DELETE FROM contacts")
     suspend fun clearContacts()
 
+    @Query("DELETE FROM contacts WHERE id NOT IN (:ids)")
+    suspend fun deleteContactsExcept(ids: List<String>)
+
     @Query("SELECT * FROM contacts WHERE (LOWER(displayName) LIKE '%' || LOWER(:query) || '%' OR LOWER(username) LIKE '%' || LOWER(:query) || '%' OR phoneNumber LIKE '%' || :query || '%') ORDER BY isRegistered DESC, displayName ASC")
     fun searchContacts(query: String): Flow<List<ContactEntity>>
 }

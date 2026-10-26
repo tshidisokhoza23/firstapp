@@ -67,12 +67,14 @@ fun ChatAvatar(
         contentAlignment = Alignment.Center
     ) {
         val formattedUrl = remember(imageUrl) { com.tpsk.tj.common.util.MediaUtils.formatUrl(imageUrl) }
-        if (!formattedUrl.isNullOrEmpty()) {
+        var imageFailed by remember(formattedUrl) { mutableStateOf(false) }
+        if (!formattedUrl.isNullOrEmpty() && !imageFailed) {
             AsyncImage(
                 model = formattedUrl,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                onError = { imageFailed = true }
             )
         } else {
             val initial = if (name.isNotEmpty()) name.trim().take(1).uppercase() else "?"

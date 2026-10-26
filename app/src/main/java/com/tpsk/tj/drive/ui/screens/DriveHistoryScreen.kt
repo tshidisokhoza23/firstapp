@@ -129,21 +129,42 @@ fun TripDetailDialog(trip: Trip, onDismiss: () -> Unit) {
                 DetailRow("Date", trip.date)
                 DetailRow("From", trip.from)
                 DetailRow("To", trip.to)
-                DetailRow("Car", trip.car)
-                DetailRow("Price", trip.price)
+                DetailRow("Vehicle", trip.car.ifBlank { "TJ Ride" })
+                DetailRow("Distance", trip.distance.ifBlank { "—" })
+                DetailRow("Fare", "R ${"%.2f".format(trip.fare)}")
+                DetailRow("TJ fee (20%)", "R ${"%.2f".format(trip.platformFee)}")
+                DetailRow(if (trip.role == "driver") "You received" else "You paid", trip.price)
+                DetailRow("Paid with", trip.paymentMethod.ifBlank { "Wallet" })
                 DetailRow("Status", trip.status, color = if (trip.status == "Completed") Color(0xFF4CAF50) else Color.White)
                 
                 HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
                 
+                val context = androidx.compose.ui.platform.LocalContext.current
                 Button(
-                    onClick = { /* Download receipt */ },
+                    onClick = {
+                        val receipt = """
+                            TJ Ride receipt
+                            ${trip.date}
+                            From: ${trip.from}
+                            To: ${trip.to}
+                            Fare: R ${"%.2f".format(trip.fare)}
+                            TJ fee: R ${"%.2f".format(trip.platformFee)}
+                            ${if (trip.role == "driver") "Driver earning" else "Paid"}: ${trip.price}
+                            Payment: ${trip.paymentMethod.ifBlank { "Wallet" }}
+                            Status: ${trip.status}
+                        """.trimIndent()
+                        context.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, receipt)
+                        }, "Share receipt"))
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.1f)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(Icons.Default.Receipt, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Download Receipt", color = Color.White)
+                    Text("Share receipt", color = Color.White)
                 }
             }
         },

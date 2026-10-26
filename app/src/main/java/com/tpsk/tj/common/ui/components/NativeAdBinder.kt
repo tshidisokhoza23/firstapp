@@ -5,7 +5,6 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import com.google.android.gms.ads.nativead.AdChoicesView
 import com.google.android.gms.ads.nativead.NativeAd
 import com.google.android.gms.ads.nativead.NativeAdView
 import com.tpsk.tj.R
@@ -20,65 +19,72 @@ internal fun prepareNativeAdView(view: NativeAdView, fillParent: Boolean) {
         ViewGroup.LayoutParams.MATCH_PARENT,
         if (fillParent) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
     )
-    view.headlineView = view.findViewById(R.id.ad_headline)
-    view.bodyView = view.findViewById(R.id.ad_body)
-    view.callToActionView = view.findViewById(R.id.ad_call_to_action)
-    view.iconView = view.findViewById(R.id.ad_app_icon)
-    view.advertiserView = view.findViewById(R.id.ad_advertiser)
-    view.mediaView = view.findViewById(R.id.ad_media)
-    if (!fillParent) {
-        view.mediaView?.minimumHeight = (200 * view.resources.displayMetrics.density).toInt()
-    }
-    val options = view.findViewById<ViewGroup>(R.id.ad_options_view_container)
-    if (options != null && view.adChoicesView == null) {
-        val choices = AdChoicesView(view.context)
-        options.removeAllViews()
-        options.addView(
-            choices,
-            ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        )
-        view.adChoicesView = choices
+    val media = view.findViewById<View>(R.id.ad_media)
+    if (!fillParent && media != null) {
+        media.minimumHeight = (200 * view.resources.displayMetrics.density).toInt()
     }
 }
 
 internal fun bindNativeAd(view: NativeAdView, ad: NativeAd) {
-    (view.headlineView as? TextView)?.text = ad.headline.orEmpty()
-    val bodyView = view.bodyView
-    if (bodyView is TextView) {
+    if (view.tag == ad) return
+    try {
+        val headline = view.findViewById<TextView>(R.id.ad_headline) ?: return
+        headline.text = ad.headline.orEmpty()
+        headline.visibility = View.VISIBLE
+        view.headlineView = headline
+
+        val bodyView = view.findViewById<TextView>(R.id.ad_body)
         val body = ad.body
-        bodyView.text = body.orEmpty()
-        bodyView.visibility = if (body.isNullOrBlank()) View.GONE else View.VISIBLE
-    }
-    val ctaView = view.callToActionView
-    if (ctaView is Button) {
+        if (bodyView != null && !body.isNullOrBlank()) {
+            bodyView.text = body
+            bodyView.visibility = View.VISIBLE
+            view.bodyView = bodyView
+        } else {
+            bodyView?.visibility = View.GONE
+        }
+
+        val ctaView = view.findViewById<Button>(R.id.ad_call_to_action)
         val cta = ad.callToAction
-        ctaView.text = cta.orEmpty()
-        ctaView.visibility = if (cta.isNullOrBlank()) View.GONE else View.VISIBLE
-    }
-    val iconView = view.iconView as? ImageView
-    val icon = ad.icon
-    if (iconView != null) {
-        if (icon != null) {
+        if (ctaView != null && !cta.isNullOrBlank()) {
+            ctaView.text = cta
+            ctaView.visibility = View.VISIBLE
+            view.callToActionView = ctaView
+        } else {
+            ctaView?.visibility = View.GONE
+        }
+
+        val iconView = view.findViewById<ImageView>(R.id.ad_app_icon)
+        val icon = ad.icon?.drawable
+        if (iconView != null && icon != null) {
+            iconView.setImageDrawable(icon)
             iconView.visibility = View.VISIBLE
-            iconView.setImageDrawable(icon.drawable)
+            view.iconView = iconView
         } else {
-            iconView.visibility = View.GONE
+            iconView?.visibility = View.GONE
         }
-    }
-    val advertiserView = view.advertiserView as? TextView
-    val advertiser = ad.advertiser
-    if (advertiserView != null) {
-        if (!advertiser.isNullOrBlank()) {
-            advertiserView.visibility = View.VISIBLE
+
+        val advertiserView = view.findViewById<TextView>(R.id.ad_advertiser)
+        val advertiser = ad.advertiser
+        if (advertiserView != null && !advertiser.isNullOrBlank()) {
             advertiserView.text = advertiser
+            advertiserView.visibility = View.VISIBLE
+            view.advertiserView = advertiserView
         } else {
-            advertiserView.visibility = View.GONE
+            advertiserView?.visibility = View.GONE
         }
-    }
-    view.mediaView?.mediaContent = ad.mediaContent
-    view.mediaView?.setImageScaleType(ImageView.ScaleType.CENTER_CROP)
-    if (view.tag != ad) {
+
+        val media = view.findViewById<com.google.android.gms.ads.nativead.MediaView>(R.id.ad_media)
+        if (media != null && ad.mediaContent != null) {
+            media.visibility = View.VISIBLE
+            view.mediaView = media
+            media.mediaContent = ad.mediaContent
+            media.setImageScaleType(ImageView.ScaleType.CENTER_CROP)
+        }
+
         view.tag = ad
         view.setNativeAd(ad)
+    } catch (e: RuntimeException) {
+        android.util.Log.w("NativeAdBinder", "Skipping native ad that could not be bound", e)
+        view.visibility = View.GONE
     }
 }

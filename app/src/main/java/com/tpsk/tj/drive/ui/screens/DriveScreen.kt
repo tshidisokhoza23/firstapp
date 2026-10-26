@@ -54,6 +54,7 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.RoundCap
 import com.google.maps.android.compose.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 import androidx.compose.foundation.BorderStroke
@@ -69,6 +70,7 @@ fun DriveScreen(
     viewModel: DriveViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel(),
     chatViewModel: com.tpsk.tj.chat.ui.viewmodel.ChatViewModel = hiltViewModel(),
+    role: String = "driver",
     onShowSettings: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -78,17 +80,47 @@ fun DriveScreen(
 
     when (currentSubScreen) {
         "history" -> {
+            LaunchedEffect(Unit) { viewModel.fetchTrips() }
             DriveHistoryScreen(
                 onBack = { currentSubScreen = null },
                 trips = tripsState.data ?: emptyList()
             )
             return
         }
-        "payment" -> {
+        "payment", "earnings" -> {
             PaymentScreen(
                 onBack = { currentSubScreen = null },
-                viewModel = viewModel
+                viewModel = viewModel,
+                forDriver = true,
+                section = "earnings",
+                onOpenPayout = { currentSubScreen = "payout" }
             )
+            return
+        }
+        "payout" -> {
+            PaymentScreen(
+                onBack = { currentSubScreen = null },
+                viewModel = viewModel,
+                forDriver = true,
+                section = "payout"
+            )
+            return
+        }
+        "documents" -> {
+            val driverDocuments by viewModel.driverDocuments.collectAsState()
+            DriverDocumentsScreen(
+                onBack = { currentSubScreen = null },
+                documents = driverDocuments,
+                onPhoto = { type, uri -> viewModel.uploadDocumentPhoto(context, type, uri) }
+            )
+            return
+        }
+        "promotions" -> {
+            PromotionsScreen(onBack = { currentSubScreen = null })
+            return
+        }
+        "safety" -> {
+            SafetyScreen(onBack = { currentSubScreen = null }, viewModel = viewModel)
             return
         }
         "support" -> {
@@ -122,8 +154,23 @@ fun DriveScreen(
         }
     }
 
+    LaunchedEffect(role) {
+        viewModel.lockRole(role != "passenger")
+    }
+
+    val actionError = viewModel.actionError.value
+    LaunchedEffect(actionError) {
+        if (!actionError.isNullOrBlank()) {
+            Toast.makeText(context, actionError, Toast.LENGTH_LONG).show()
+            viewModel.consumeActionError()
+        }
+    }
+
+    var menuRequest by remember { mutableStateOf<String?>(null) }
+
     LaunchedEffect(Unit) {
         viewModel.setDriveActive(true)
+        viewModel.watchNearbyPeople(context)
         if (!hasLocationPermission) {
             launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
@@ -201,8 +248,15 @@ fun DriveScreen(
                 drawerState = drawerState,
                 scope = scope,
                 onDriverModeToggle = { viewModel.toggleDriverMode(it) },
+                roleLocked = true,
                 onShowHistory = { currentSubScreen = "history"; scope.launch { drawerState.close() } },
-                onShowPayment = { currentSubScreen = "payment"; scope.launch { drawerState.close() } },
+                onShowPayment = { currentSubScreen = "earnings"; scope.launch { drawerState.close() } },
+                onShowEarnings = { currentSubScreen = "earnings"; scope.launch { drawerState.close() } },
+                onShowPayout = { currentSubScreen = "payout"; scope.launch { drawerState.close() } },
+                onShowVehicle = { menuRequest = "vehicle"; scope.launch { drawerState.close() } },
+                onShowDocuments = { currentSubScreen = "documents"; scope.launch { drawerState.close() } },
+                onShowPromotions = { currentSubScreen = "promotions"; scope.launch { drawerState.close() } },
+                onShowSafety = { currentSubScreen = "safety"; scope.launch { drawerState.close() } },
                 onShowSavedPlaces = { currentSubScreen = "saved_places"; scope.launch { drawerState.close() } },
                 onShowSupport = { currentSubScreen = "support"; scope.launch { drawerState.close() } },
                 onShowSettings = { onShowSettings(); scope.launch { drawerState.close() } },
@@ -211,83 +265,23 @@ fun DriveScreen(
         },
         gesturesEnabled = drawerState.isOpen
     ) {
-        if (isDriverMode) {
-            DriverDashboard(
-                isOnline = driverOnlineStatus,
-                onOnlineToggle = { viewModel.setDriverOnlineStatus(it) },
-                isApproved = isDriverApproved,
-                earnings = driverEarnings,
-                documents = driverDocuments,
-                incomingRequest = rideRequest,
-                onAccept = { viewModel.acceptRideRequest() },
-                onDecline = { viewModel.declineRideRequest() },
-                onMenuClick = { scope.launch { drawerState.open() } },
-                onUploadDoc = { type, url -> viewModel.uploadDocument(type, url) },
-                viewModel = viewModel,
-                scope = scope,
-                bottomPadding = bottomPadding
-            )
-        } else {
-            DriveMainContent(
-                scaffoldState = scaffoldState,
-                hasLocationPermission = hasLocationPermission,
-                step = step,
-                onStepChange = { step = it },
-                isSearchingView = isSearching,
-                onSearchToggle = { isSearching = it },
-                selectedDestination = selectedDestination,
-                onDestinationSelected = { destination ->
-                    if (destination != null) {
-                        viewModel.getPlaceDetails(context, destination) { detailedDest ->
-                            viewModel.updateSelectedDestination(detailedDest)
-                            step = 1
-                            isSearching = false
-                            scope.launch { scaffoldState.bottomSheetState.partialExpand() }
-                            
-                            val pickup = viewModel.pickupLocation.value ?: LatLng(-26.1076, 28.0567)
-                            val waypoints = additionalStops.map { LatLng(it.latitude, it.longitude) }
-                            viewModel.calculateRoute(pickup, LatLng(detailedDest.latitude, detailedDest.longitude), waypoints)
-                            
-                            viewModel.saveDestination(
-                                name = detailedDest.name,
-                                address = detailedDest.address,
-                                latitude = detailedDest.latitude,
-                                longitude = detailedDest.longitude,
-                                type = "recent"
-                            )
-                        }
-                    } else {
-                        viewModel.updateSelectedDestination(null)
-                    }
-                },
-                additionalStops = additionalStops,
-                onAddStop = { additionalStops.add(it) },
-                onRemoveStop = { additionalStops.removeAt(it) },
-                selectedRide = selectedRide,
-                onRideSelect = { viewModel.selectRide(it) },
-                fromLocation = fromLocation,
-                onFromLocationChange = {
-                    fromLocation = it
-                    viewModel.searchPlaces(context, it)
-                },
-                toLocation = toLocation,
-                onToLocationChange = { 
-                    toLocation = it
-                    viewModel.searchPlaces(context, it)
-                },
-                onMenuClick = { scope.launch { drawerState.open() } },
-                showSafetyCenter = showSafetyCenter,
-                onSafetyCenterToggle = { showSafetyCenter = it },
-                showDriverProfile = showDriverProfile,
-                onDriverProfileToggle = { showDriverProfile = it },
-                showSchedulePicker = showSchedulePicker,
-                onSchedulePickerToggle = { showSchedulePicker = it },
-                bottomPadding = bottomPadding,
-                viewModel = viewModel,
-                user = user,
-                chatViewModel = chatViewModel
-            )
-        }
+        DriverDashboard(
+            isOnline = driverOnlineStatus,
+            onOnlineToggle = { viewModel.setDriverOnlineStatus(it) },
+            isApproved = isDriverApproved,
+            earnings = driverEarnings,
+            documents = driverDocuments,
+            incomingRequest = rideRequest,
+            onAccept = { viewModel.acceptRideRequest() },
+            onDecline = { viewModel.declineRideRequest() },
+            onMenuClick = { scope.launch { drawerState.open() } },
+            onUploadDoc = { type, url -> viewModel.uploadDocument(type, url) },
+            menuRequest = menuRequest,
+            onMenuRequestHandled = { menuRequest = null },
+            viewModel = viewModel,
+            scope = scope,
+            bottomPadding = bottomPadding
+        )
     }
 
     if (showSafetyCenter) {
@@ -378,8 +372,15 @@ fun DriveDrawerContent(
     drawerState: DrawerState,
     scope: kotlinx.coroutines.CoroutineScope,
     onDriverModeToggle: (Boolean) -> Unit,
+    roleLocked: Boolean = false,
     onShowHistory: () -> Unit, 
     onShowPayment: () -> Unit, 
+    onShowEarnings: () -> Unit = onShowPayment,
+    onShowPayout: () -> Unit = onShowPayment,
+    onShowVehicle: () -> Unit = {},
+    onShowDocuments: () -> Unit = {},
+    onShowPromotions: () -> Unit = {},
+    onShowSafety: () -> Unit = {},
     onShowSavedPlaces: () -> Unit,
     onShowSupport: () -> Unit, 
     onShowSettings: () -> Unit,
@@ -398,6 +399,10 @@ fun DriveDrawerContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(if (isDriverMode) Color(0xFF252A31) else Color.Transparent)
+                        .clickable {
+                            onShowSettings()
+                            scope.launch { drawerState.close() }
+                        }
                         .padding(top = 48.dp, start = 24.dp, end = 24.dp, bottom = 24.dp)
                 ) {
                     Column {
@@ -428,18 +433,11 @@ fun DriveDrawerContent(
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text(
-                                    user?.displayName ?: "Alex R.", 
+                                    user?.displayName ?: "You", 
                                     color = if (isDriverMode) Color.White else MaterialTheme.colorScheme.onSurface, 
                                     fontWeight = FontWeight.Bold, 
                                     fontSize = 20.sp
                                 )
-                                if (!isDriverApproved) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("Passenger rating: 4.9 ", color = if (isDriverMode) Color.White.copy(0.6f) else MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                                        Icon(Icons.Default.Star, null, tint = NiceOrange, modifier = Modifier.size(14.dp))
-                                    }
-                                }
-                                
                                 Surface(
                                     color = if (isDriverApproved) Color.White else Color(0xFF607D8B).copy(0.2f),
                                     shape = RoundedCornerShape(12.dp),
@@ -460,8 +458,7 @@ fun DriveDrawerContent(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Role Actions
-                if (!isDriverApproved) {
+                if (!roleLocked && !isDriverApproved) {
                     Button(
                         onClick = { onDriverModeToggle(true) },
                         modifier = Modifier
@@ -477,8 +474,7 @@ fun DriveDrawerContent(
                             Text("BECOME A DRIVER", fontWeight = FontWeight.Black, fontSize = 16.sp)
                         }
                     }
-                } else {
-                    // Approved Switch - Button based on mode
+                } else if (!roleLocked) {
                     Button(
                         onClick = { onDriverModeToggle(!isDriverMode) },
                         modifier = Modifier
@@ -498,7 +494,7 @@ fun DriveDrawerContent(
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                if (isDriverMode) "SWITCH TO PASSENGER" else "SWITCH TO DRIVER", 
+                                if (isDriverMode) "SWITCH TO RIDE" else "SWITCH TO DRIVE", 
                                 fontWeight = FontWeight.Black, 
                                 fontSize = 16.sp
                             )
@@ -510,15 +506,20 @@ fun DriveDrawerContent(
 
                 // Menu Items
                 if (isDriverMode) {
-                    DrawerItem(Icons.Default.Dashboard, "Driver Dashboard") { scope.launch { drawerState.close() } }
-                    DrawerItem(Icons.Default.AccountBalanceWallet, "Earnings History") { onShowPayment(); scope.launch { drawerState.close() } }
-                    DrawerItem(Icons.Default.AccountBalance, "Payout Methods") { onShowPayment(); scope.launch { drawerState.close() } }
-                    DrawerItem(Icons.Default.Build, "Vehicle Management") { scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.Receipt, "Trip history") { onShowHistory() }
+                    DrawerItem(Icons.Default.AccountBalanceWallet, "Earnings") { onShowEarnings() }
+                    DrawerItem(Icons.Default.AccountBalance, "Payout methods") { onShowPayout() }
+                    DrawerItem(Icons.Default.Description, "Documents") { onShowDocuments() }
+                    DrawerItem(Icons.Default.Build, "Vehicle") { onShowVehicle() }
+                    DrawerItem(Icons.Default.Shield, "Safety") { onShowSafety() }
+                    DrawerItem(Icons.Default.SupportAgent, "Support") { onShowSupport() }
                 } else {
-                    DrawerItem(Icons.Default.Payment, "Payment Methods") { onShowPayment(); scope.launch { drawerState.close() } }
-                    DrawerItem(Icons.Default.LocalOffer, "Promotions") { scope.launch { drawerState.close() } }
-                    DrawerItem(Icons.Default.Shield, "Safety") { scope.launch { drawerState.close() } }
-                    DrawerItem(Icons.Default.SupportAgent, "Support") { onShowSupport(); scope.launch { drawerState.close() } }
+                    DrawerItem(Icons.Default.Payment, "Payment") { onShowPayment() }
+                    DrawerItem(Icons.Default.Receipt, "Trip history") { onShowHistory() }
+                    DrawerItem(Icons.Default.Place, "Saved places") { onShowSavedPlaces() }
+                    DrawerItem(Icons.Default.LocalOffer, "Promotions") { onShowPromotions() }
+                    DrawerItem(Icons.Default.Shield, "Safety") { onShowSafety() }
+                    DrawerItem(Icons.Default.SupportAgent, "Support") { onShowSupport() }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -545,33 +546,34 @@ fun DrawerItem(
     badgeColor: Color = MaterialTheme.colorScheme.primary,
     onClick: () -> Unit = {}
 ) {
-    NavigationDrawerItem(
-        label = { 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                if (badge != null) {
-                    Surface(
-                        color = badgeColor.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(0.5.dp, badgeColor.copy(alpha = 0.5f))
-                    ) {
-                        Text(
-                            text = badge,
-                            color = badgeColor,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(16.dp))
+        Text(label, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        if (badge != null) {
+            Surface(
+                color = badgeColor.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(0.5.dp, badgeColor.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = badge,
+                    color = badgeColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
             }
-        },
-        selected = false,
-        onClick = onClick,
-        icon = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-        colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = Color.Transparent),
-        modifier = Modifier.padding(horizontal = 12.dp)
-    )
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -783,7 +785,7 @@ fun DriveMainContent(
                             viewModel.updateSelectedDestination(null)
                             onRideSelect(null)
                             viewModel.clearRoute()
-                            viewModel.cancelBooking()
+                            viewModel.clearTripSummary()
                         },
                         onShowDriverProfile = { onDriverProfileToggle(true) },
                         viewModel = viewModel,
@@ -806,6 +808,7 @@ fun DriveMainContent(
                 contentPadding = PaddingValues(bottom = sheetHeight),
                 properties = MapProperties(
                     isMyLocationEnabled = hasLocationPermission,
+                    isTrafficEnabled = true,
                     mapType = MapType.NORMAL,
                     mapStyleOptions = MapStyleOptions(mapStyleJson)
                 ),
@@ -849,16 +852,6 @@ fun DriveMainContent(
                         }
                     }
 
-                    if (nearbyDrivers.isEmpty()) {
-                        // Force a dummy driver if simulation hasn't started or no drivers nearby
-                        Marker(
-                            state = rememberMarkerState(position = LatLng(pickupLocation.latitude + 0.002, pickupLocation.longitude + 0.002)),
-                            rotation = 45f,
-                            flat = true,
-                            icon = carIcon,
-                            anchor = Offset(0.5f, 0.5f)
-                        )
-                    }
                 }
 
                 // Show assigned driver ONLY when ride is accepted (EN_ROUTE, ARRIVED, etc.)
@@ -1134,9 +1127,7 @@ fun DriverProfileDialog(onDismiss: () -> Unit, driver: NearbyDriver?) {
         containerColor = AppSecondary,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(AppAccent.copy(0.1f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Person, null, tint = AppAccent)
-                }
+                DriverAvatar(driver.profilePhoto, Modifier.size(48.dp), 24.dp)
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(driver.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
@@ -1152,6 +1143,10 @@ fun DriverProfileDialog(onDismiss: () -> Unit, driver: NearbyDriver?) {
                 DetailRow("Vehicle", driver.vehicleModel)
                 DetailRow("Color", driver.vehicleColor)
                 DetailRow("Plate", driver.licensePlate)
+                if (driver.photoUrls.isNotEmpty()) {
+                    Text("Car photos", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    CarPhotoStrip(driver.photoUrls)
+                }
                 
                 HorizontalDivider(color = Color.White.copy(0.05f))
                 
@@ -1616,6 +1611,10 @@ fun RideSelectionFlow(
     val duration = viewModel.routeDuration.value
     val preferences = viewModel.ridePreferences
     val outOfServiceArea = viewModel.outOfServiceArea.value
+    val canBook = selectedRide?.price?.toDoubleOrNull()?.let { it > 0.0 } == true
+    LaunchedEffect(outOfServiceArea) {
+        if (!outOfServiceArea) viewModel.ensureRideChoices()
+    }
 
     Column(modifier = modifier) {
         Row(
@@ -1632,6 +1631,8 @@ fun RideSelectionFlow(
                 )
                 if (distance != null && duration != null && !outOfServiceArea) {
                     Text("$distance • $duration", color = AppTextSecondary, fontSize = 14.sp)
+                } else if (!outOfServiceArea) {
+                    Text("Getting the live traffic price", color = AppTextSecondary, fontSize = 14.sp)
                 }
             }
             Text("Personal", color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -1711,7 +1712,7 @@ fun RideSelectionFlow(
             
             Button(
                 onClick = { if (!outOfServiceArea) onBook() else viewModel.clearRoute() },
-                enabled = selectedRide != null || outOfServiceArea,
+                enabled = canBook || outOfServiceArea,
                 modifier = Modifier
                     .weight(1f)
                     .height(56.dp),
@@ -1769,7 +1770,7 @@ fun RideOptionItem(option: RideOption, isSelected: Boolean, onSelect: () -> Unit
                         tint = MaterialTheme.colorScheme.onSurfaceVariant, 
                         modifier = Modifier.size(14.dp)
                     )
-                    Text(" 4", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    Text(" ${option.capacity}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 }
                 Text(option.arrivalTime, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 Text(
@@ -1780,7 +1781,7 @@ fun RideOptionItem(option: RideOption, isSelected: Boolean, onSelect: () -> Unit
                 )
             }
             Text(
-                "R${option.price}", 
+                if (option.price == "—") "—" else "R${option.price}",
                 color = MaterialTheme.colorScheme.onSurface, 
                 fontWeight = FontWeight.ExtraBold, 
                 fontSize = 18.sp
@@ -1807,6 +1808,9 @@ fun LiveTrackingFlow(
         if (status == BookingStatus.COMPLETED) {
             showRatingDialog = true
         }
+        if (status == BookingStatus.NONE) {
+            onCancel()
+        }
     }
     
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1827,27 +1831,19 @@ fun LiveTrackingFlow(
                 .clickable { onShowDriverProfile() },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(if (assignedDriver != null) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Gray),
-                contentAlignment = Alignment.Center
-            ) {
-                if (assignedDriver != null) {
-                    Icon(
-                        Icons.Default.Person, 
-                        contentDescription = null, 
-                        tint = MaterialTheme.colorScheme.primary, 
-                        modifier = Modifier.size(32.dp)
-                    )
-                } else {
+            if (assignedDriver == null) {
+                Box(
+                    modifier = Modifier.size(64.dp).clip(CircleShape).background(Color.Gray),
+                    contentAlignment = Alignment.Center
+                ) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp), 
-                        color = MaterialTheme.colorScheme.primary, 
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.primary,
                         strokeWidth = 2.dp
                     )
                 }
+            } else {
+                DriverAvatar(assignedDriver.profilePhoto, Modifier.size(64.dp), 32.dp)
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -1877,6 +1873,10 @@ fun LiveTrackingFlow(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
+                    if (assignedDriver.photoUrls.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        CarPhotoStrip(assignedDriver.photoUrls)
+                    }
                 }
             }
             if (status != BookingStatus.IN_PROGRESS && status != BookingStatus.COMPLETED) {
@@ -2001,7 +2001,7 @@ fun LiveTrackingFlow(
                         color = Color.White, 
                         fontSize = 14.sp
                     )
-                    if (status != BookingStatus.IN_PROGRESS && status != BookingStatus.COMPLETED) {
+                    if (status == BookingStatus.EN_ROUTE || status == BookingStatus.ARRIVED) {
                         viewModel.safetyPin.value?.let { pin ->
                             Text(
                                 text = "Verify with PIN: $pin",
@@ -2032,7 +2032,6 @@ fun LiveTrackingFlow(
             onConfirm = { reason ->
                 viewModel.cancelRide(reason, "PASSENGER")
                 showCancelDialog = false
-                onCancel()
             }
         )
     }
@@ -2158,14 +2157,31 @@ fun DriverDashboard(
     onDecline: () -> Unit,
     onMenuClick: () -> Unit,
     onUploadDoc: (String, String) -> Unit,
+    menuRequest: String? = null,
+    onMenuRequestHandled: () -> Unit = {},
     viewModel: DriveViewModel,
     scope: kotlinx.coroutines.CoroutineScope,
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     val context = LocalContext.current
     var showDocUpload by remember { mutableStateOf(false) }
+    var uploadType by remember { mutableStateOf(RequiredDriverDocuments.first()) }
     var showVehicleEdit by remember { mutableStateOf(false) }
     var currentTab by remember { mutableIntStateOf(0) } // 0 for Map/Home, 1 for Docs/Earnings
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) viewModel.uploadDocumentPhoto(context, uploadType, uri)
+    }
+    fun openUpload(type: String) {
+        uploadType = type
+        photoPicker.launch("image/*")
+    }
+    LaunchedEffect(menuRequest) {
+        when (menuRequest) {
+            "vehicle" -> showVehicleEdit = true
+            "documents" -> currentTab = 1
+        }
+        if (menuRequest != null) onMenuRequestHandled()
+    }
     val bookingStatus = viewModel.bookingStatus.value
     
     val pickupLocation = viewModel.pickupLocation.value ?: LatLng(-26.1076, 28.0567)
@@ -2194,7 +2210,7 @@ fun DriverDashboard(
             TopAppBar(
                 title = { 
                     Column {
-                        Text("Driver Dashboard", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("TJ Drive", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
                             if (isOnline) "Receiving requests" else "Currently offline",
                             style = MaterialTheme.typography.labelSmall,
@@ -2249,39 +2265,46 @@ fun DriverDashboard(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (!isApproved) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Default.PendingActions, null, modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(24.dp))
-                    Text("Account Under Review", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        "Please upload all required documents. Our team will review them within 24-48 hours.",
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(32.dp))
-                    
-                    Text("Required Documents:", fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val required = listOf("ID Document", "Driver's License", "Criminal Verification", "Roadworthy Certificate", "Car Image")
-                        required.forEach { type ->
-                            val doc = documents.firstOrNull { it.type == type }
-                            DocumentItem(doc ?: DriverDocument("", type, "MISSING"))
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.PendingActions, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(16.dp))
+                        Text("Account Under Review", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Tap a document to upload a clear photo. TJ reviews it before you can go online.",
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            RequiredDriverDocuments.forEach { type ->
+                                val doc = documents.firstOrNull { it.type == type }
+                                DocumentItem(doc ?: DriverDocument("", type, "MISSING")) { openUpload(type) }
+                            }
                         }
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = { showVehicleEdit = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.DirectionsCar, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add vehicle")
+                        }
+                        Spacer(Modifier.height(24.dp))
                     }
-                    Spacer(Modifier.height(32.dp))
-                    Button(
+                    OutlinedButton(
                         onClick = { showDocUpload = true },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Default.UploadFile, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Upload Missing Documents")
+                        Text("Upload documents")
                     }
                 }
             } else if (currentTab == 0) {
@@ -2291,6 +2314,7 @@ fun DriverDashboard(
                     cameraPositionState = cameraPositionState,
                     properties = MapProperties(
                         isMyLocationEnabled = true,
+                        isTrafficEnabled = true,
                         mapStyleOptions = MapStyleOptions(mapStyleJson)
                     ),
                     uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false)
@@ -2303,6 +2327,12 @@ fun DriverDashboard(
                         )
                     }
                 }
+
+                DriverDemandCard(
+                    area = viewModel.areaPresence.value,
+                    error = viewModel.areaError.value,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(16.dp)
+                )
                 
                 // Map Controls
                 Column(
@@ -2345,14 +2375,17 @@ fun DriverDashboard(
                                 Spacer(Modifier.height(16.dp))
                                 Text("You are offline", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.height(8.dp))
-                                Text("Go online to start earning and receiving ride requests in your area.", 
+                                DriverDemandCard(viewModel.areaPresence.value, viewModel.areaError.value)
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Go online to receive rides. TJ keeps 20% of each fare.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, 
                                     fontSize = 14.sp,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                 )
                                 Spacer(Modifier.height(24.dp))
                                 Button(
-                                    onClick = { 
+                                    onClick = {
                                         val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                                         if (hasPermission) onOnlineToggle(true)
                                         else locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -2399,6 +2432,18 @@ fun DriverDashboard(
                                     Text("${vehicle.make} ${vehicle.model} (${vehicle.year})", fontWeight = FontWeight.Medium)
                                     Text(vehicle.license_plate, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                 }
+                                if (vehicle.profile_photo_url.isNullOrBlank()) {
+                                    Text("No driving profile picture yet. Edit to add one.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                } else {
+                                    Spacer(Modifier.height(12.dp))
+                                    DriverAvatar(vehicle.profile_photo_url, Modifier.size(72.dp), 32.dp)
+                                }
+                                if (vehicle.photo_urls.orEmpty().isEmpty()) {
+                                    Text("No car photos yet. Edit to add them.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                                } else {
+                                    Spacer(Modifier.height(12.dp))
+                                    CarPhotoStrip(vehicle.photo_urls.orEmpty())
+                                }
                             }
                         }
                     }
@@ -2439,18 +2484,12 @@ fun DriverDashboard(
                                         fontWeight = FontWeight.Black,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
-                                    if (earnings > 0) {
-                                        Button(
-                                            onClick = { 
-                                                viewModel.requestPayout()
-                                                Toast.makeText(context, "R${"%.2f".format(earnings)} withdrawn to wallet", Toast.LENGTH_LONG).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Text("Withdraw R${"%.2f".format(earnings)}", fontSize = 12.sp)
-                                        }
-                                    }
+                                    Text(
+                                        "Pays in full every Monday",
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
                                 }
                             }
                         }
@@ -2458,12 +2497,25 @@ fun DriverDashboard(
 
                     // Documents Section
                     item {
+                        val plan = viewModel.feePlan.value
+                        Text("How you get paid", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "20% per trip. You keep 80%. The full available amount is paid to your bank every Monday at 06:00. No cash.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text("Wallet R${"%.2f".format(plan.wallet_balance)}", fontWeight = FontWeight.Bold)
+                    }
+
+                    item {
                         Spacer(Modifier.height(8.dp))
                         Text("My Documents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
                     
                     items(documents) { doc ->
-                        DocumentItem(doc)
+                        DocumentItem(doc) { openUpload(doc.type) }
                     }
                     
                     item {
@@ -2481,7 +2533,7 @@ fun DriverDashboard(
             }
 
             // Incoming Request Overlay
-            if (isApproved && incomingRequest != null && isOnline) {
+            if (currentTab == 0 && isApproved && incomingRequest != null && isOnline) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2498,7 +2550,59 @@ fun DriverDashboard(
             }
 
             // PIN Verification Overlay
-            if (isApproved && isOnline && bookingStatus == BookingStatus.ARRIVED) {
+            if (currentTab == 0 && isApproved && (bookingStatus == BookingStatus.EN_ROUTE || bookingStatus == BookingStatus.ARRIVED || bookingStatus == BookingStatus.IN_PROGRESS)) {
+                Card(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp).padding(bottom = bottomPadding),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        var nowSeconds by remember { mutableLongStateOf(System.currentTimeMillis() / 1000) }
+                        LaunchedEffect(bookingStatus) {
+                            while (true) {
+                                nowSeconds = System.currentTimeMillis() / 1000
+                                delay(1000)
+                            }
+                        }
+                        Text(
+                            when (bookingStatus) {
+                                BookingStatus.EN_ROUTE -> "Head to pickup. ${viewModel.remainingTime.value?.let { "Live traffic: $it." } ?: "Checking live traffic."} The rider can see that you accepted."
+                                BookingStatus.ARRIVED -> "Ask for the passenger PIN. ${waitCopy(viewModel.arrivedAt.value, nowSeconds)}"
+                                else -> "You are completing this ride. The rider can see it."
+                            },
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(viewModel.pickupAddress.value, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        if (bookingStatus == BookingStatus.EN_ROUTE) {
+                            Button(onClick = { viewModel.markArrived() }, modifier = Modifier.fillMaxWidth()) {
+                                Text("I have arrived")
+                            }
+                        }
+                        if (bookingStatus == BookingStatus.IN_PROGRESS) {
+                            viewModel.activeStops.value.forEach { stop ->
+                                val label = stop.address.ifBlank { "Stop ${stop.index + 1}" }
+                                when {
+                                    stop.arrived_at == 0L -> Button(onClick = { viewModel.markStop(stop.index, "ARRIVED") }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Arrived at $label")
+                                    }
+                                    stop.left_at == 0L -> Button(onClick = { viewModel.markStop(stop.index, "LEFT") }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Continue from $label")
+                                    }
+                                }
+                            }
+                            Button(onClick = { viewModel.completeTrip() }, modifier = Modifier.fillMaxWidth()) {
+                                Text("Complete trip")
+                            }
+                        }
+                        if (bookingStatus != BookingStatus.IN_PROGRESS) {
+                            TextButton(onClick = { viewModel.cancelRide("Driver cancelled", "DRIVER") }, modifier = Modifier.fillMaxWidth()) {
+                                Text("Cancel ride")
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (currentTab == 0 && isApproved && isOnline && bookingStatus == BookingStatus.ARRIVED) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -2507,7 +2611,8 @@ fun DriverDashboard(
                     contentAlignment = Alignment.Center
                 ) {
                     PinVerificationCard(
-                        onVerify = { pin -> viewModel.verifySafetyPin(pin) }
+                        onVerify = { pin -> viewModel.verifySafetyPin(pin) },
+                        errorText = viewModel.actionError.value
                     )
                 }
             }
@@ -2517,8 +2622,8 @@ fun DriverDashboard(
     if (showDocUpload) {
         DocumentUploadDialog(
             onDismiss = { showDocUpload = false },
-            onUpload = { type, url ->
-                onUploadDoc(type, url)
+            onPhoto = { type, uri ->
+                viewModel.uploadDocumentPhoto(context, type, uri)
                 showDocUpload = false
             }
         )
@@ -2532,9 +2637,44 @@ fun DriverDashboard(
             onSave = { 
                 viewModel.updateVehicleInfo(it)
                 showVehicleEdit = false
-            }
+            },
+            onAddPhotos = { uris -> viewModel.uploadVehiclePhotos(context, uris) },
+            onRemovePhoto = { url -> viewModel.removeVehiclePhoto(url) },
+            onProfilePhoto = { uri -> viewModel.uploadDriverProfilePhoto(context, uri) }
         )
     }
+}
+
+@Composable
+private fun DriverDemandCard(area: AreaPresence?, error: String?, modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 6.dp,
+        modifier = modifier
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                when {
+                    area != null -> "${area.clients} potential clients within ${area.radius_km.toInt()} km"
+                    error != null -> "Couldn't check clients nearby"
+                    else -> "Checking potential clients nearby"
+                },
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                "People with the app open in this area, not other online drivers.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+private fun waitCopy(arrivedAt: Long, nowSeconds: Long = System.currentTimeMillis() / 1000): String {
+    if (arrivedAt <= 0L) return "3 minutes are free, then waiting is R2 per minute."
+    val left = 180 - (nowSeconds - arrivedAt)
+    return if (left > 0) "Free waiting: ${left / 60}m ${left % 60}s left" else "Waiting fee is running at R2 per minute"
 }
 
 @Composable
@@ -2554,7 +2694,7 @@ fun StatCard(modifier: Modifier, label: String, value: String, icon: androidx.co
 }
 
 @Composable
-fun DocumentItem(doc: DriverDocument) {
+fun DocumentItem(doc: DriverDocument, onClick: () -> Unit = {}) {
     val statusColor = when(doc.status) {
         "APPROVED" -> Color(0xFF4CAF50)
         "PENDING" -> Color(0xFFFFC107)
@@ -2565,7 +2705,7 @@ fun DocumentItem(doc: DriverDocument) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -2578,6 +2718,9 @@ fun DocumentItem(doc: DriverDocument) {
                     Text("ID: ${doc.id.take(8)}", style = MaterialTheme.typography.bodySmall)
                 }
             }
+            Column(horizontalAlignment = Alignment.End) {
+            Text("Tap to upload", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
             Surface(
                 color = statusColor.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(4.dp),
@@ -2591,22 +2734,85 @@ fun DocumentItem(doc: DriverDocument) {
                     fontWeight = FontWeight.Bold
                 )
             }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DriverDocumentsScreen(
+    onBack: () -> Unit,
+    documents: List<DriverDocument>,
+    onPhoto: (String, android.net.Uri) -> Unit
+) {
+    BackHandler { onBack() }
+    var pendingType by remember { mutableStateOf(RequiredDriverDocuments.first()) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) onPhoto(pendingType, uri)
+    }
+    val nextType = RequiredDriverDocuments.firstOrNull { type ->
+        documents.none { it.type == type && it.status == "APPROVED" }
+    } ?: RequiredDriverDocuments.first()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Documents", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Tap a document, then choose a clear photo. It stays pending until TJ approves it.")
+                RequiredDriverDocuments.forEach { type ->
+                    val doc = documents.firstOrNull { it.type == type } ?: DriverDocument("", type, "MISSING")
+                    DocumentItem(doc) {
+                        pendingType = type
+                        picker.launch("image/*")
+                    }
+                }
+            }
+            Button(
+                onClick = {
+                    pendingType = nextType
+                    picker.launch("image/*")
+                },
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.UploadFile, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Upload $nextType")
+            }
         }
     }
 }
 
 @Composable
-fun DocumentUploadDialog(onDismiss: () -> Unit, onUpload: (String, String) -> Unit) {
-    var type by remember { mutableStateOf("ID Document") }
+fun DocumentUploadDialog(onDismiss: () -> Unit, onPhoto: (String, android.net.Uri) -> Unit) {
+    var type by remember { mutableStateOf(RequiredDriverDocuments.first()) }
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) onPhoto(type, uri) else onDismiss()
+    }
     
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Upload Document") },
         text = {
-            Column {
-                Text("Select document type and upload a clear photo.")
+            Column(modifier = Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                Text("Select the document, then choose a clear photo. It stays pending until TJ approves it.")
                 Spacer(Modifier.height(16.dp))
-                listOf("ID Document", "Driver's License", "Criminal Verification", "Roadworthy Certificate", "Car Image").forEach { t ->
+                RequiredDriverDocuments.forEach { t ->
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { type = t }.padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -2619,8 +2825,8 @@ fun DocumentUploadDialog(onDismiss: () -> Unit, onUpload: (String, String) -> Un
             }
         },
         confirmButton = {
-            Button(onClick = { onUpload(type, "simulated_url") }) {
-                Text("Upload Photo")
+            Button(onClick = { picker.launch("image/*") }) {
+                Text("Choose Photo")
             }
         },
         dismissButton = {
@@ -2739,6 +2945,10 @@ fun TripSummaryDialog(summary: TripSummary, onDismiss: () -> Unit) {
                 DetailRow("Distance", summary.distance)
                 DetailRow("Duration", summary.duration)
                 DetailRow("Payment", summary.paymentMethod)
+                if (summary.driverEarning > 0) {
+                    DetailRow("TJ fee 20%", "R" + "%.2f".format(summary.platformFee))
+                    DetailRow("You receive", "R" + "%.2f".format(summary.driverEarning))
+                }
                 
                 HorizontalDivider(color = Color.White.copy(0.1f))
                 
@@ -2765,9 +2975,12 @@ fun TripSummaryDialog(summary: TripSummary, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun PinVerificationCard(onVerify: (String) -> Boolean) {
+fun PinVerificationCard(onVerify: (String) -> Boolean, errorText: String? = null) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
+    LaunchedEffect(errorText) {
+        error = !errorText.isNullOrBlank() && pin.length == 4
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -2819,7 +3032,10 @@ fun PinVerificationCard(onVerify: (String) -> Boolean) {
             Spacer(Modifier.height(32.dp))
             
             Button(
-                onClick = { if (!onVerify(pin)) error = true },
+                onClick = {
+                    error = false
+                    onVerify(pin)
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 enabled = pin.length == 4,
@@ -2834,22 +3050,86 @@ fun PinVerificationCard(onVerify: (String) -> Boolean) {
 }
 
 @Composable
+private fun DriverAvatar(url: String?, modifier: Modifier = Modifier, iconSize: androidx.compose.ui.unit.Dp = 32.dp) {
+    Box(
+        modifier = modifier.clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (url.isNullOrBlank()) {
+            Icon(Icons.Default.Person, contentDescription = "Driver profile picture", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(iconSize))
+        } else {
+            coil.compose.AsyncImage(
+                model = com.tpsk.tj.common.util.MediaUtils.formatUrl(url),
+                contentDescription = "Driver profile picture",
+                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            )
+        }
+    }
+}
+
+@Composable
+fun CarPhotoStrip(urls: List<String>, onRemove: ((String) -> Unit)? = null) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(urls) { url ->
+            Box(modifier = Modifier.size(88.dp)) {
+                coil.compose.AsyncImage(
+                    model = com.tpsk.tj.common.util.MediaUtils.formatUrl(url),
+                    contentDescription = "Car photo",
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+                if (onRemove != null) {
+                    IconButton(
+                        onClick = { onRemove(url) },
+                        modifier = Modifier.align(Alignment.TopEnd).size(28.dp).background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Remove photo", tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun VehicleProfileDialog(
     initialInfo: VehicleInfo,
     onDismiss: () -> Unit,
-    onSave: (VehicleInfo) -> Unit
+    onSave: (VehicleInfo) -> Unit,
+    onAddPhotos: (List<android.net.Uri>) -> Unit,
+    onRemovePhoto: (String) -> Unit,
+    onProfilePhoto: (android.net.Uri) -> Unit
 ) {
     var make by remember { mutableStateOf(initialInfo.make) }
     var model by remember { mutableStateOf(initialInfo.model) }
     var year by remember { mutableStateOf(initialInfo.year) }
     var color by remember { mutableStateOf(initialInfo.color) }
     var plate by remember { mutableStateOf(initialInfo.license_plate) }
+    val photos = initialInfo.photo_urls.orEmpty()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNotEmpty()) onAddPhotos(uris)
+    }
+    val profilePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) onProfilePhoto(uri)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Vehicle Profile", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                DriverAvatar(initialInfo.profile_photo_url, Modifier.size(88.dp), 36.dp)
+                OutlinedButton(onClick = { profilePicker.launch("image/*") }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.AddAPhoto, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (initialInfo.profile_photo_url.isNullOrBlank()) "Add profile picture" else "Change profile picture")
+                }
+                Text("Riders see this picture after you accept.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                 OutlinedTextField(value = make, onValueChange = { make = it }, label = { Text("Make") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = model, onValueChange = { model = it }, label = { Text("Model") }, modifier = Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2857,10 +3137,29 @@ fun VehicleProfileDialog(
                     OutlinedTextField(value = color, onValueChange = { color = it }, label = { Text("Color") }, modifier = Modifier.weight(1f))
                 }
                 OutlinedTextField(value = plate, onValueChange = { plate = it }, label = { Text("License Plate") }, modifier = Modifier.fillMaxWidth())
+                Text("Car photos", fontWeight = FontWeight.Bold)
+                Text(
+                    if (photos.isEmpty()) "Add one or more clear photos of the car. Riders see these when you accept."
+                    else "${photos.size} of 6 photos",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+                if (photos.isNotEmpty()) {
+                    CarPhotoStrip(photos, onRemovePhoto)
+                }
+                OutlinedButton(
+                    onClick = { picker.launch("image/*") },
+                    enabled = photos.size < 6,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.AddAPhoto, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (photos.isEmpty()) "Add car photos" else "Add more photos")
+                }
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(VehicleInfo(make, model, year, color, plate)) }) {
+            Button(onClick = { onSave(VehicleInfo(make, model, year, color, plate, photos, initialInfo.profile_photo_url)) }) {
                 Text("Save Changes")
             }
         },
@@ -2882,7 +3181,7 @@ fun CancellationDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         title = { Text("Cancel Ride?") },
         text = {
             Column {
-                Text("Please select a reason for cancellation.", color = Color.Gray)
+                Text("Cancelling after a driver accepts keeps a R20 fee. The rest goes back to your wallet. Searching rides are refunded in full.", color = Color.Gray)
                 Spacer(Modifier.height(16.dp))
                 reasons.forEach { r ->
                     Row(

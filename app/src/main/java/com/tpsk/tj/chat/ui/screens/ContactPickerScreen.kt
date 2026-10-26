@@ -78,7 +78,19 @@ fun ContactPickerScreen(
         }
     }
 
-    val contacts = if (isSearchActive && searchQuery.isNotBlank()) searchResults else (contactsResource.data ?: emptyList())
+    val currentUser = com.tpsk.tj.LocalCurrentUser.current
+    val rawContacts = if (isSearchActive && searchQuery.isNotBlank()) searchResults else (contactsResource.data ?: emptyList())
+
+    val contacts = remember(rawContacts, currentUser) {
+        val myId = currentUser?.id.orEmpty()
+        val myPhoneDigits = currentUser?.phoneNumber?.filter { it.isDigit() }.orEmpty().let { if (it.length >= 9) it.takeLast(9) else it }
+        rawContacts.filter { contact ->
+            val isSelfId = myId.isNotBlank() && (contact.id == myId || contact.id == "user_$myId" || contact.id.removePrefix("user_") == myId.removePrefix("user_"))
+            val contactDigits = contact.phoneNumber.filter { it.isDigit() }.let { if (it.length >= 9) it.takeLast(9) else it }
+            val isSelfPhone = myPhoneDigits.isNotBlank() && contactDigits.isNotBlank() && contactDigits == myPhoneDigits
+            !isSelfId && !isSelfPhone
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -272,10 +284,10 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
     val displayNameResolver = remember(context) { DisplayNameResolver(context) }
     
     // Resolve name with safer initialization
-    var resolvedName by remember { mutableStateOf(if (contact.displayName.isNotEmpty()) contact.displayName else contact.phoneNumber) }
+    var resolvedName by remember { mutableStateOf(if (contact.displayName.isNotEmpty()) contact.displayName else if (contact.isRegistered) "@${contact.username.ifBlank { "user" }}" else contact.phoneNumber) }
     
     // Move heavy/background resolving to a side-effect
-    LaunchedEffect(contact.phoneNumber, contact.displayName) {
+    LaunchedEffect(contact.phoneNumber, contact.displayName, contact.username) {
         val user = User(
             id = contact.id,
             username = contact.username,
@@ -285,9 +297,41 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
         // Only attempt resolve if we have a phone number
         if (contact.phoneNumber.isNotEmpty()) {
             val resolved = displayNameResolver.resolve(user, contact.phoneNumber)
-            if (resolved.isNotEmpty()) {
+            if (resolved.isNotEmpty() && !resolved.startsWith("+") && !resolved.all { it.isDigit() || it == '-' || it == ' ' }) {
                 resolvedName = resolved
             }
+        }
+    }
+
+    // Ensure title for registered contacts never shows a raw phone number
+    val titleText = remember(resolvedName, contact.isRegistered, contact.displayName, contact.username) {
+        if (contact.isRegistered) {
+            val name = contact.displayName.trim()
+            val res = resolvedName.trim()
+            val isPhone = { s: String -> s.startsWith("+") || s.all { c -> c.isDigit() || c == '+' || c == ' ' || c == '-' } }
+            when {
+                name.isNotBlank() && !isPhone(name) -> name
+                res.isNotBlank() && !isPhone(res) -> res
+                contact.username.isNotBlank() -> "@${contact.username}"
+                else -> "User"
+            }
+        } else {
+            resolvedName
+        }
+    }
+
+    // Subtitle text: NEVER show phone number for registered contacts
+    val subtitleText = remember(contact.isRegistered, contact.bio, contact.username, contact.phoneNumber) {
+        if (contact.isRegistered) {
+            val bio = contact.bio?.trim()
+            val username = contact.username.trim()
+            when {
+                !bio.isNullOrBlank() -> bio
+                username.isNotBlank() -> "@$username"
+                else -> "Available"
+            }
+        } else {
+            contact.phoneNumber
         }
     }
 
@@ -305,16 +349,16 @@ fun ContactItem(contact: Contact, isSelected: Boolean, showCheckbox: Boolean, on
                 .background(if (contact.isRegistered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
-                Text(
-                    resolvedName.take(1).uppercase(), 
-                    color = if (contact.isRegistered) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, 
-                    fontWeight = FontWeight.Bold
-                )
+            Text(
+                titleText.take(1).uppercase(), 
+                color = if (contact.isRegistered) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, 
+                fontWeight = FontWeight.Bold
+            )
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-                Text(resolvedName, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
-            Text(if (contact.isRegistered) (contact.bio ?: "Available") else contact.phoneNumber, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text(titleText, color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
+            Text(subtitleText, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
         
         if (showCheckbox && contact.isRegistered) {

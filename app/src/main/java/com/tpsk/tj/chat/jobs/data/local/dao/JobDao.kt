@@ -18,6 +18,9 @@ interface JobDao {
     @Query("UPDATE jobs SET isApplied = :isApplied, hasAppliedInternal = :isApplied WHERE id = :jobId")
     suspend fun updateAppliedStatus(jobId: String, isApplied: Boolean)
 
+    @Query("UPDATE jobs SET isSaved = :saved WHERE id = :jobId")
+    suspend fun updateSavedStatus(jobId: String, saved: Boolean)
+
     @Query("UPDATE jobs SET hasClickedExternal = 1 WHERE id = :jobId")
     suspend fun markClickedExternalLocally(jobId: String)
 

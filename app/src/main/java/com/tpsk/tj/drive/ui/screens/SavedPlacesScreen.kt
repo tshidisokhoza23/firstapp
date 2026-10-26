@@ -30,6 +30,7 @@ fun SavedPlacesScreen(
     viewModel: DriveViewModel
 ) {
     BackHandler { onBack() }
+    LaunchedEffect(Unit) { viewModel.fetchDestinations() }
     val destinationsState by viewModel.destinations.collectAsState()
     val favorites = remember(destinationsState) {
         destinationsState.data?.filter { it.isFavorite || it.type == DestinationType.HOME || it.type == DestinationType.WORK } ?: emptyList()

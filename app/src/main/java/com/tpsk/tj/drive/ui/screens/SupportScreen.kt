@@ -90,12 +90,15 @@ fun SupportScreen(onBack: () -> Unit) {
                 Spacer(modifier = Modifier.height(32.dp))
                 val context = androidx.compose.ui.platform.LocalContext.current
                 Button(
-                    onClick = { 
+                    onClick = {
                         val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
                             data = android.net.Uri.parse("mailto:support@firstapp.com")
                             putExtra(android.content.Intent.EXTRA_SUBJECT, "Support Request")
                         }
-                        context.startActivity(intent)
+                        runCatching { context.startActivity(intent) }
+                            .onFailure {
+                                android.widget.Toast.makeText(context, "No email app is installed", android.widget.Toast.LENGTH_SHORT).show()
+                            }
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = AppAccent),
@@ -137,7 +140,12 @@ fun TopicDetailDialog(topic: String, onDismiss: () -> Unit) {
         title = { Text(topic, color = Color.White, fontWeight = FontWeight.Bold) },
         text = {
             Text(
-                "Find answers to frequently asked questions about $topic. Our team is working to provide more detailed documentation here soon.",
+                when (topic) {
+                    "Trip Issues" -> "If a driver has not moved, cancel before the PIN is entered and you are not charged a waiting fee. After the trip starts, use Safety to share the trip or call 112. Waiting is free for 3 minutes, then R2 per minute."
+                    "Payment and Pricing" -> "Riders pay from the wallet by card or 1Voucher. Cash is not accepted. The fare is R20 plus the vehicle rate per kilometre plus R1.50 per live traffic minute. TJ keeps 20%. Drivers are paid the full 80% every Monday at 06:00."
+                    "Account and Data" -> "Open the profile at the top of the menu for Settings. Documents and vehicle details are reviewed before a driver can go online. A rejected document can be uploaded again from Documents."
+                    else -> "During a trip, Safety can share your status or open the dialer for 112. The driver cannot start the trip until you give them the PIN."
+                },
                 color = AppTextSecondary,
                 lineHeight = 20.sp
             )

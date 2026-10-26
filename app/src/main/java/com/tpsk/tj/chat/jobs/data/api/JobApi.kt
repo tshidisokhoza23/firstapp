@@ -20,6 +20,9 @@ interface JobApi {
         @Query("category") category: String? = null
     ): Response<JobsResponse>
 
+    @GET("jobs/{jobId}")
+    suspend fun getJob(@Path("jobId") jobId: String): Response<ApiJob>
+
     @GET("jobs/search")
     suspend fun search(
         @Query("query") query: String,
@@ -153,9 +156,9 @@ data class ApiJob(
         isVerified = is_verified,
         isApplied = is_applied || (has_applied_internal ?: false),
         isSaved = is_saved,
-        isExternal = false,
-        sourcePartner = null,
-        trackingApplyUrl = null,
+        isExternal = is_external ?: false,
+        sourcePartner = source_partner,
+        trackingApplyUrl = getTrackingUrl(),
         hasAppliedInternal = is_applied || (has_applied_internal ?: false),
         hasClickedExternal = has_clicked_external ?: false,
         isFeatured = is_featured ?: false,

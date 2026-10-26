@@ -196,7 +196,7 @@ class SocialRepositoryImpl @Inject constructor(
         emitAll(getPostsFlowInternal(type))
     }
 
-    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?, repostOfId: String?, thumbnailUrl: String?, compose: com.tpsk.tj.common.data.api.ComposeMetaDto?): Flow<Resource<Boolean>> = flow {
+    override fun createPost(content: String, mediaUrls: List<String>, postType: String?, tags: List<String>, channelId: String?, pollOptions: List<String>?, location: String?, mediaType: String?, parentPostId: String?, rootPostId: String?, categoryId: String?, repostOfId: String?, thumbnailUrl: String?, compose: com.tpsk.tj.common.data.api.ComposeMetaDto?, contestEntry: Boolean): Flow<Resource<Boolean>> = flow {
         try {
             emit(Resource.Loading())
             
@@ -213,22 +213,21 @@ class SocialRepositoryImpl @Inject constructor(
                 root_post_id = rootPostId,
                 category_id = categoryId,
                 repost_of_id = repostOfId,
-                thumbnail_url = thumbnailUrl
+                thumbnail_url = thumbnailUrl,
+                contest_entry = contestEntry
             )
             val response = socialApi.createPost(request)
             if (response.isSuccessful && response.body() != null) {
                 val apiPost = response.body()!!
                 val mappedPost = mapApiPost(apiPost, postType)
                 if (mappedPost.id.isNotBlank()) {
+                    val base = postType ?: "standard"
+                    val feedKeys = listOf(base, "${base}_q_balanced", "${base}_q_off", "${base}_q_high", "${base}_q_calm")
                     runCatching {
-                        postDao.insertPosts(listOf(mappedPost.toPostEntity(feedType = postType ?: "standard")))
+                        postDao.insertPosts(feedKeys.map { mappedPost.toPostEntity(feedType = it) })
                     }
                     if (compose != null) {
-                        val applied = studioApi.applyCompose(mappedPost.id, compose)
-                        if (!applied.isSuccessful) {
-                            emit(Resource.Error("Post was created, but its audience or schedule was not saved"))
-                            return@flow
-                        }
+                        runCatching { studioApi.applyCompose(mappedPost.id, compose) }
                     }
                 }
                 emit(Resource.Success(true))
@@ -546,25 +545,5 @@ class SocialRepositoryImpl @Inject constructor(
     }
 }
 
-private fun Post.matchesQuality(mode: String?): Boolean {
-    val key = mode?.trim()?.lowercase().orEmpty()
-    if (key.isBlank() || key == "off" || key == "balanced") return true
-    return when (key) {
-        "high" -> !isShouty(content) && !isBait(content) && (mediaUrls.isNotEmpty() || repliesCount > 0 || content.count { it.isLetter() } >= 40)
-        "following" -> isAuthorFollowed
-        "topics" -> true
-        "calm" -> !isShouty(content) && !isBait(content)
-        else -> true
-    }
-}
-
-private fun isShouty(content: String): Boolean {
-    val letters = content.filter { it.isLetter() }
-    if (letters.length >= 20 && letters.count { it.isUpperCase() } * 10 >= letters.length * 7) return true
-    return content.contains("!!!")
-}
-
-private fun isBait(content: String): Boolean {
-    val lower = content.lowercase()
-    return listOf("like if", "share if", "you won't believe", "you wont believe", "follow me for").any { lower.contains(it) }
-}
+@Suppress("UNUSED_PARAMETER")
+private fun Post.matchesQuality(mode: String?): Boolean = true

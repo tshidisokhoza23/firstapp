@@ -52,6 +52,26 @@ class ContestViewModel @Inject constructor(
                 .onSuccess { rows ->
                     _listState.update { it.copy(isLoading = false, contests = rows) }
                     _activeHashtags.value = rows.map { row -> row.hashtag }
+                    rows.take(8).filter { it.previewAvatarUrl.isNullOrBlank() && it.coverUrl.isNullOrBlank() }.forEach { contest ->
+                        launch {
+                            repository.feed(contest.hashtag).onSuccess { feed ->
+                                val top = feed.leaderboard.firstOrNull()
+                                val cover = feed.posts.firstOrNull()?.mediaUrls?.firstOrNull()
+                                    ?: feed.posts.firstOrNull()?.thumbnailUrl
+                                    ?: top?.avatarUrl
+                                _listState.update { state ->
+                                    state.copy(contests = state.contests.map { row ->
+                                        if (row.id != contest.id && row.hashtag != contest.hashtag) row
+                                        else row.copy(
+                                            previewName = top?.authorName ?: row.previewName,
+                                            previewAvatarUrl = top?.avatarUrl ?: row.previewAvatarUrl,
+                                            coverUrl = cover ?: row.coverUrl
+                                        )
+                                    })
+                                }
+                            }
+                        }
+                    }
                 }
                 .onFailure { err ->
                     _listState.update { it.copy(isLoading = false, error = err.message) }
@@ -101,7 +121,10 @@ class ContestViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             repository.create(title, description, hashtag, limit)
-                .onSuccess(onSuccess)
+                .onSuccess { created ->
+                    com.tpsk.tj.media.ui.components.ContestTags.add(created.hashtag.ifBlank { hashtag })
+                    onSuccess(created)
+                }
                 .onFailure { onError(it.message ?: "Could not create contest") }
         }
     }

@@ -156,6 +156,10 @@ fun ProfileView(
     val safeSelectedTabIndex = if (selectedTabIndex < tabs.size) selectedTabIndex else 0
     val selectedTab = if (safeSelectedTabIndex < tabs.size) tabs.get(safeSelectedTabIndex) else if (tabs.size > 0) tabs.get(tabs.size - 1) else ""
     val profileOwnerId = if (userId.length > 0 && userId != "null") userId else currentUser.id
+    var reputation by remember(profileOwnerId) { mutableIntStateOf(50) }
+    LaunchedEffect(profileOwnerId) {
+        mediaViewModel.loadReputation(profileOwnerId) { reputation = it }
+    }
 
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
@@ -367,7 +371,7 @@ fun ProfileView(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Star, null, tint = Color(0xFF00E5FF), modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(2.dp))
-                                Text("Reputation 82", color = Color(0xFF00E5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Reputation $reputation", color = Color(0xFF00E5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
@@ -627,7 +631,7 @@ fun ProfileView(
                                             val clean = tag.removePrefix("#").trim()
                                             if (clean.isNotBlank()) {
                                                 com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
-                                                    com.tpsk.tj.ui.navigation.Screen.ContestFeed.createRoute(clean)
+                                                    com.tpsk.tj.media.ui.components.hashtagRoute(clean)
                                                 )
                                             }
                                         },
@@ -752,7 +756,7 @@ fun ProfileView(
                                             val clean = tag.removePrefix("#").trim()
                                             if (clean.isNotBlank()) {
                                                 com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
-                                                    com.tpsk.tj.ui.navigation.Screen.ContestFeed.createRoute(clean)
+                                                    com.tpsk.tj.media.ui.components.hashtagRoute(clean)
                                                 )
                                             }
                                         },
@@ -807,7 +811,7 @@ fun ProfileView(
                                             val clean = tag.removePrefix("#").trim()
                                             if (clean.isNotBlank()) {
                                                 com.tpsk.tj.common.util.GlobalNavigation.navigateTo(
-                                                    com.tpsk.tj.ui.navigation.Screen.ContestFeed.createRoute(clean)
+                                                    com.tpsk.tj.media.ui.components.hashtagRoute(clean)
                                                 )
                                             }
                                         },

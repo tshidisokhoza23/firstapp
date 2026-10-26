@@ -23,6 +23,8 @@ object MediaProcessor {
         maxDimension: Int = 2048,
         quality: Int = 82
     ): File = withContext(Dispatchers.IO) {
+        com.tpsk.tj.common.util.MediaUtils.compressImage(context, sourceUri, maxDimension, quality)
+            ?.let { return@withContext it }
         val inputStream = context.contentResolver.openInputStream(sourceUri)
             ?: throw IllegalArgumentException("Cannot open URI: $sourceUri")
 

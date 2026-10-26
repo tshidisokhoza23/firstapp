@@ -302,7 +302,7 @@ fun MingleProfilePreviewDialog(
                                 Button(
                                     onClick = {
                                         if (!hasUploadedProfile) {
-                                            Toast.makeText(context, "You must upload or complete your Mingle profile before you can like people!", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, "You must upload or complete your Friends profile before you can like people!", Toast.LENGTH_LONG).show()
                                             return@Button
                                         }
                                         mingleViewModel.swipe(

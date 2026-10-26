@@ -10,6 +10,8 @@ import com.tpsk.tj.drive.model.*
 import com.tpsk.tj.drive.data.network.RideWebSocketClient
 
 import kotlinx.coroutines.flow.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import javax.inject.Inject
 
 class DriveRepositoryImpl @Inject constructor(
@@ -139,7 +141,37 @@ class DriveRepositoryImpl @Inject constructor(
             if (res.isSuccessful && res.body() != null) {
                 emit(Resource.Success(res.body()!!.document))
             } else {
-                emit(Resource.Error("Upload failed"))
+                emit(Resource.Error(res.errorBody()?.string()?.ifBlank { null } ?: "Upload failed"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun uploadDocumentPhoto(type: String, file: okhttp3.MultipartBody.Part): Flow<Resource<DriverDocument>> = flow {
+        emit(Resource.Loading())
+        try {
+            val body = type.toRequestBody("text/plain".toMediaType())
+            val res = driveApi.uploadDocumentPhoto(body, file)
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!.document))
+            } else {
+                emit(Resource.Error(apiError(res, "Upload failed")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun getWalletActivity(): Flow<Resource<WalletActivity>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getWalletActivity()
+            if (res.isSuccessful && res.body() != null) {
+                val body = res.body()!!
+                emit(Resource.Success(WalletActivity(body.transactions, body.availablePayout, body.weekEarnings)))
+            } else {
+                emit(Resource.Error("Failed to load payments"))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))
@@ -164,7 +196,7 @@ class DriveRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         try {
             val res = driveApi.updateOnlineStatus(com.tpsk.tj.drive.data.api.UpdateStatusRequest(online, latitude, longitude))
-            emit(Resource.Success(res.isSuccessful))
+            if (res.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error(apiError(res, "Could not change online status")))
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))
         }
@@ -179,20 +211,43 @@ class DriveRepositoryImpl @Inject constructor(
         dLng: Double,
         fare: Double,
         distance: String,
-        type: String
+        type: String,
+        meters: Int,
+        seconds: Int,
+        stops: List<com.tpsk.tj.drive.data.api.RideStopBody>
     ): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.createRideRequest(com.tpsk.tj.drive.data.api.CreateRideRequest(
-                pickup, dest, pLat, pLng, dLat, dLng, fare, distance, type
+                pickup, dest, pLat, pLng, dLat, dLng, fare, distance, type, seconds, meters, stops
             ))
             if (res.isSuccessful && res.body() != null) {
                 emit(Resource.Success(res.body()!!.ride_id))
             } else {
-                emit(Resource.Error("Failed to create request"))
+                emit(Resource.Error(apiError(res, "Failed to create request")))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun reportPresence(lat: Double, lng: Double): Flow<Resource<AreaPresence>> = flow {
+        try {
+            val res = driveApi.reportPresence(com.tpsk.tj.drive.data.api.PresenceRequest(lat, lng))
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!))
+            else emit(Resource.Error(apiError(res, "Couldn't check who is nearby")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Couldn't check who is nearby"))
+        }
+    }
+
+    override fun markStop(rideId: String, index: Int, action: String): Flow<Resource<Boolean>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.markStop(com.tpsk.tj.drive.data.api.MarkStopRequest(rideId, index, action))
+            if (res.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error(apiError(res, "Could not update the stop")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Could not update the stop"))
         }
     }
 
@@ -200,7 +255,7 @@ class DriveRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         try {
             val res = driveApi.updateRideStatus(com.tpsk.tj.drive.data.api.UpdateRideStatusRequest(rideId, status))
-            emit(Resource.Success(res.isSuccessful))
+            if (res.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error(apiError(res, "Could not update the ride")))
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))
         }
@@ -210,7 +265,7 @@ class DriveRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
         try {
             val res = driveApi.cancelRide(com.tpsk.tj.drive.data.api.CancelRideRequest(rideId, reason, by))
-            emit(Resource.Success(res.isSuccessful))
+            if (res.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error(apiError(res, "Could not cancel the ride")))
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))
         }
@@ -224,6 +279,48 @@ class DriveRepositoryImpl @Inject constructor(
                 emit(Resource.Success(res.body()!!))
             } else {
                 emit(Resource.Error("Failed to fetch vehicle info"))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun uploadVehiclePhoto(file: okhttp3.MultipartBody.Part): Flow<Resource<VehicleInfo>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.uploadVehiclePhoto(file)
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!))
+            } else {
+                emit(Resource.Error(apiError(res, "Could not add that car photo")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun uploadDriverProfilePhoto(file: okhttp3.MultipartBody.Part): Flow<Resource<VehicleInfo>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.uploadDriverProfilePhoto(file)
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!))
+            } else {
+                emit(Resource.Error(apiError(res, "Could not save that profile picture")))
+            }
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun removeVehiclePhoto(url: String): Flow<Resource<VehicleInfo>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.removeVehiclePhoto(com.tpsk.tj.drive.data.api.RemoveVehiclePhotoRequest(url))
+            if (res.isSuccessful && res.body() != null) {
+                emit(Resource.Success(res.body()!!))
+            } else {
+                emit(Resource.Error(apiError(res, "Could not remove that photo")))
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Error"))
@@ -266,6 +363,114 @@ class DriveRepositoryImpl @Inject constructor(
 
     override fun disconnectRideSocket() {
         rideWebSocketClient.disconnect()
+    }
+
+    override fun getRideState(): Flow<Resource<RideLiveState>> = flow {
+        try {
+            val res = driveApi.getRideState()
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!))
+            else emit(Resource.Error(apiError(res, "Could not load the ride")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun getDriverPlan(): Flow<Resource<DriverFeePlan>> = flow {
+        try {
+            val res = driveApi.getDriverPlan()
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!))
+            else emit(Resource.Error(apiError(res, "Could not load driver plan")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun setDriverPlan(plan: String): Flow<Resource<DriverFeePlan>> = flow {
+        try {
+            val res = driveApi.setDriverPlan(com.tpsk.tj.drive.data.api.SetDriverPlanRequest(plan))
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!))
+            else emit(Resource.Error(apiError(res, "Could not save the plan")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun topUpWallet(amount: Double): Flow<Resource<com.tpsk.tj.drive.data.api.TopUpResponse>> = flow {
+        try {
+            val res = driveApi.topUpWallet(com.tpsk.tj.drive.data.api.TopUpRequest(amount))
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!))
+            else emit(Resource.Error(apiError(res, "Could not start card payment")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun confirmTopUp(reference: String): Flow<Resource<Double>> = flow {
+        try {
+            val res = driveApi.confirmTopUp(com.tpsk.tj.drive.data.api.ConfirmTopUpRequest(reference))
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!.wallet_balance))
+            else emit(Resource.Error(apiError(res, "Payment is not finished yet")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun redeemVoucher(pin: String): Flow<Resource<Double>> = flow {
+        try {
+            val res = driveApi.redeemVoucher(com.tpsk.tj.drive.data.api.VoucherRequest(pin))
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!.wallet_balance))
+            else emit(Resource.Error(apiError(res, "Could not redeem voucher")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun startRide(rideId: String, pin: String): Flow<Resource<Boolean>> = flow {
+        try {
+            val res = driveApi.startRide(com.tpsk.tj.drive.data.api.StartRideRequest(rideId, pin))
+            if (res.isSuccessful) emit(Resource.Success(true)) else emit(Resource.Error(apiError(res, "PIN is wrong")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    private fun apiError(res: retrofit2.Response<*>, fallback: String): String {
+        val raw = res.errorBody()?.string().orEmpty()
+        val parsed = Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(raw)?.groupValues?.getOrNull(1)
+        return parsed ?: fallback
+    }
+
+    override fun getPayoutAccount(): Flow<Resource<com.tpsk.tj.drive.data.api.DriverPayoutAccount>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getPayoutAccount()
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!))
+            else emit(Resource.Error(apiError(res, "Could not load payout account")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun savePayoutAccount(name: String, number: String, bankCode: String, bankName: String): Flow<Resource<com.tpsk.tj.drive.data.api.DriverPayoutAccount>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.savePayoutAccount(com.tpsk.tj.drive.data.api.SavePayoutAccountRequest(name, number, bankCode, bankName))
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!))
+            else emit(Resource.Error(apiError(res, "Could not save bank account")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
+    }
+
+    override fun getPayoutBanks(): Flow<Resource<List<com.tpsk.tj.drive.data.api.PayoutBank>>> = flow {
+        emit(Resource.Loading())
+        try {
+            val res = driveApi.getPayoutBanks()
+            if (res.isSuccessful && res.body() != null) emit(Resource.Success(res.body()!!.banks))
+            else emit(Resource.Error(apiError(res, "Could not load banks")))
+        } catch (e: Exception) {
+            emit(Resource.Error(e.message ?: "Error"))
+        }
     }
 
     override fun getActiveSession(): Flow<Resource<ActiveSession>> = flow {

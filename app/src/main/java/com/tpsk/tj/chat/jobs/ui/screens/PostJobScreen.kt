@@ -23,6 +23,7 @@ fun PostJobScreen(
     viewModel: JobViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     var title by remember { mutableStateOf("") }
+    var company by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("General") }
     var description by remember { mutableStateOf("") }
     var skills by remember { mutableStateOf("") }
@@ -34,12 +35,23 @@ fun PostJobScreen(
 
     LaunchedEffect(createResult) {
         val result = createResult
-        if (result is com.tpsk.tj.common.util.Resource.Success) {
-            val url = result.data?.authorizationUrl
-            if (!url.isNullOrBlank()) {
-                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+        when (result) {
+            is com.tpsk.tj.common.util.Resource.Success -> {
+                val url = result.data?.authorizationUrl
+                if (!url.isNullOrBlank()) {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                    android.widget.Toast.makeText(context, "Finish payment to publish this job", android.widget.Toast.LENGTH_LONG).show()
+                } else if (result.data?.paymentRequired == true) {
+                    android.widget.Toast.makeText(context, "Payment is required before this job appears", android.widget.Toast.LENGTH_LONG).show()
+                }
+                viewModel.clearCreateResult()
+                onBack()
             }
-            onBack()
+            is com.tpsk.tj.common.util.Resource.Error -> {
+                android.widget.Toast.makeText(context, result.message ?: "Could not post job", android.widget.Toast.LENGTH_LONG).show()
+                viewModel.clearCreateResult()
+            }
+            else -> {}
         }
     }
 
@@ -71,6 +83,19 @@ fun PostJobScreen(
                 value = title,
                 onValueChange = { title = it },
                 label = { Text("Job Title") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                )
+            )
+
+            OutlinedTextField(
+                value = company,
+                onValueChange = { company = it },
+                label = { Text("Company") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -136,7 +161,20 @@ fun PostJobScreen(
             Button(
                 onClick = {
                     val skillsList = skills.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    viewModel.createJob(title, description, category, skillsList, 30, locationCity = location, packageType = packageType)
+                    if (title.isBlank() || description.isBlank() || company.isBlank()) {
+                        android.widget.Toast.makeText(context, "Title, company, and description are required", android.widget.Toast.LENGTH_SHORT).show()
+                        return@Button
+                    }
+                    viewModel.createJob(
+                        title,
+                        description,
+                        category,
+                        skillsList,
+                        30,
+                        company = company,
+                        locationCity = location,
+                        packageType = packageType
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(

@@ -1,6 +1,7 @@
 package com.tpsk.tj.media.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -122,7 +123,7 @@ fun MediaTabScreen(
             onHashtagNavigate = { tag ->
                 val clean = tag.removePrefix("#").trim()
                 if (clean.isNotBlank()) {
-                    navController.navigate(Screen.ContestFeed.createRoute(clean))
+                    navController.navigate(com.tpsk.tj.media.ui.components.hashtagRoute(clean))
                 }
             }
         )
@@ -132,7 +133,9 @@ fun MediaTabScreen(
             onClick = { navController.navigate(Screen.CreatePost.createRoute()) },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 20.dp),
+                .padding(end = 20.dp, bottom = 20.dp)
+                .size(56.dp),
+            shape = RoundedCornerShape(16.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = Color.White
         ) {

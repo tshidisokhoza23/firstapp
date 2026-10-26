@@ -65,6 +65,7 @@ sealed class Screen(val route: String) {
     object CreateGroup : Screen("create_group")
     object JobProfile : Screen("job_profile")
     object Applications : Screen("applications")
+    object MyJobs : Screen("my_jobs")
     object DirectMessages : Screen("direct_messages")
     object DirectChat : Screen("direct_chat/{chatId}") {
         fun createRoute(chatId: String) = "direct_chat/$chatId"
@@ -93,6 +94,7 @@ sealed class Screen(val route: String) {
     object Wallet : Screen("wallet")
     object Stream : Screen("stream")
     object Ride : Screen("ride")
+    object Drive : Screen("drive")
     object PostJob : Screen("post_job")
     object CreateChannel : Screen("create_channel")
     object MediaMessages : Screen("media_messages")
@@ -125,6 +127,9 @@ sealed class Screen(val route: String) {
     object ContestDiscovery : Screen("contest_discovery")
     object ContestFeed : Screen("contest_feed/{hashtag}") {
         fun createRoute(hashtag: String) = "contest_feed/${android.net.Uri.encode(hashtag)}"
+    }
+    object HashtagFeed : Screen("hashtag_feed/{hashtag}") {
+        fun createRoute(hashtag: String) = "hashtag_feed/${android.net.Uri.encode(hashtag.removePrefix("#"))}"
     }
     object CreateContest : Screen("create_contest")
     object TrendingFeed : Screen("trending_feed")

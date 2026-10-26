@@ -83,7 +83,7 @@ fun MingleChatsScreen(
                 title = {
                     Column {
                         Text(
-                            text = "Mingle Secret Chats",
+                            text = "Friends Secret Chats",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
@@ -152,7 +152,7 @@ fun MingleChatsScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Search Mingle secret chats...", fontSize = 14.sp) },
+                placeholder = { Text("Search Friends chats...", fontSize = 14.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -271,14 +271,14 @@ fun MingleChatsScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No matching secret chats" else "No Mingle Secret Chats Yet",
+                            text = if (searchQuery.isNotBlank()) "No matching secret chats" else "No Friends Secret Chats Yet",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Try searching for a different name." else "Match with people on Mingle to start private, secret chats.",
+                            text = if (searchQuery.isNotBlank()) "Try searching for a different name." else "Match with people on Friends to start private, secret chats.",
                             textAlign = TextAlign.Center,
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -294,7 +294,7 @@ fun MingleChatsScreen(
                             ) {
                                 Icon(Icons.Default.Favorite, contentDescription = null, tint = Color.White)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Explore Mingle Candidates", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Explore Candidates", color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

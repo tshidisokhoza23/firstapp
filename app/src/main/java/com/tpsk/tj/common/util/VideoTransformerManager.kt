@@ -95,6 +95,48 @@ object VideoTransformerManager {
         fallbackFile
     }
 
+    /**
+     * Re-encode a voice note or imported audio clip with the device AAC encoder (MediaCodec).
+     * Returns null when the hardware path fails so the caller can upload the original.
+     */
+    suspend fun exportAudioForUpload(context: Context, inputUri: Uri): File? = withContext(Dispatchers.Main) {
+        val tempDir = File(context.cacheDir, "media_temp")
+        if (!tempDir.exists()) tempDir.mkdirs()
+        val outputFile = File(tempDir, "compressed_audio_${System.currentTimeMillis()}.m4a")
+        val encoder = DefaultEncoderFactory.Builder(context)
+            .setEnableFallback(true)
+            .build()
+        suspendCancellableCoroutine { continuation ->
+            val transformer = Transformer.Builder(context)
+                .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                .setEncoderFactory(encoder)
+                .addListener(object : Transformer.Listener {
+                    override fun onCompleted(composition: Composition, exportResult: ExportResult) {
+                        if (continuation.isActive) continuation.resume(outputFile.takeIf { it.exists() && it.length() > 0 })
+                    }
+
+                    override fun onError(
+                        composition: Composition,
+                        exportResult: ExportResult,
+                        exportException: ExportException
+                    ) {
+                        Log.e("VideoTransformer", "Hardware audio export warning: ${exportException.message}")
+                        outputFile.delete()
+                        if (continuation.isActive) continuation.resume(null)
+                    }
+                })
+                .build()
+            continuation.invokeOnCancellation { transformer.cancel() }
+            try {
+                transformer.start(MediaItem.fromUri(inputUri), outputFile.absolutePath)
+            } catch (e: Exception) {
+                Log.e("VideoTransformer", "Failed to start hardware audio export", e)
+                outputFile.delete()
+                if (continuation.isActive) continuation.resume(null)
+            }
+        }
+    }
+
     suspend fun trimAndExportVideo(
         context: Context,
         inputUri: Uri,

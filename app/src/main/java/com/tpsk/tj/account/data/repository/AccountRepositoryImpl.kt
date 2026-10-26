@@ -343,11 +343,18 @@ class AccountRepositoryImpl @Inject constructor(
                     uploadTarget = Uri.fromFile(compressed)
                     name = compressed.name
                 }
+            } else if (!alreadyCompressed && !pathName.startsWith("VOICE_") && !pathName.startsWith("compressed_audio_") && (mime.startsWith("audio/") || voiceNoteMime(pathName) != null || voiceNoteMime(name.orEmpty()) != null)) {
+                VideoTransformerManager.exportAudioForUpload(context, uri)?.let { compressed ->
+                    tempFile = compressed
+                    uploadTarget = Uri.fromFile(compressed)
+                    name = compressed.name
+                }
             }
 
             val uploadType = when {
                 tempFile != null && mime.startsWith("video/") -> "video/mp4".toMediaTypeOrNull()
                 tempFile != null && mime.startsWith("image/") -> "image/jpeg".toMediaTypeOrNull()
+                tempFile != null && (mime.startsWith("audio/") || name.orEmpty().endsWith(".m4a")) -> "audio/mp4".toMediaTypeOrNull()
                 else -> mediaType
             }
             val body = MultipartBody.Part.createFormData(

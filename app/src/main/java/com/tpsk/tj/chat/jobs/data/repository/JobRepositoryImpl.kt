@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map as flowMap
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 class JobRepositoryImpl @Inject constructor(
@@ -42,16 +43,18 @@ class JobRepositoryImpl @Inject constructor(
         }
 
         try {
-            val response = jobApi.getJobs(
-                page = page,
-                jobType = jobType,
-                featured = if (featuredOnly) true else null,
-                location = location,
-                salaryMin = salaryMin,
-                postedWithinDays = postedWithinDays,
-                query = query,
-                category = category
-            )
+            val response = withTimeout(12_000) {
+                jobApi.getJobs(
+                    page = page,
+                    jobType = jobType,
+                    featured = if (featuredOnly) true else null,
+                    location = location,
+                    salaryMin = salaryMin,
+                    postedWithinDays = postedWithinDays,
+                    query = query,
+                    category = category
+                )
+            }
             if (response.isSuccessful) {
                 val apiJobs = response.body()?.jobs ?: emptyList<ApiJob>()
                 Log.d("JobRepo", "Fetched ${apiJobs.size} jobs from network")
@@ -78,10 +81,42 @@ class JobRepositoryImpl @Inject constructor(
         }
 
         emitAll(jobDao.getJobs().flowMap { entities ->
-            val models = entities.map { it.toModel() }
-            val finalJobs = if (models.isEmpty()) createSampleNativeJobs() else models
-            Resource.Success<List<Job>>(finalJobs)
+            Resource.Success(entities.map { it.toModel() })
         })
+    }
+
+    override fun getJob(jobId: String): Flow<Resource<Job>> = flow {
+        emit(Resource.Loading())
+        try {
+            val response = jobApi.getJob(jobId)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                runCatching { jobApi.recordView(jobId) }
+                val job = body.toModel().copy(viewsCount = (body.views_count ?: 0L) + 1)
+                jobDao.insertJobs(listOf(job.toEntity()))
+                emit(Resource.Success(job))
+                return@flow
+            }
+        } catch (e: Exception) {
+            Log.e("JobRepo", "getJob failed", e)
+        }
+        val cached = jobDao.getJobs().first().map { it.toModel() }.find { it.id == jobId }
+        if (cached != null) emit(Resource.Success(cached))
+        else emit(Resource.Error("Could not load this job"))
+    }
+
+    override suspend fun setJobSaved(jobId: String, saved: Boolean): Resource<Boolean> {
+        return try {
+            val response = if (saved) jobApi.saveJob(jobId) else jobApi.unsaveJob(jobId)
+            if (response.isSuccessful) {
+                jobDao.updateSavedStatus(jobId, saved)
+                Resource.Success(true)
+            } else {
+                Resource.Error("Could not update saved job")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Could not update saved job")
+        }
     }
 
     override fun applyForJob(jobId: String): Flow<Resource<String>> = flow {
@@ -93,7 +128,8 @@ class JobRepositoryImpl @Inject constructor(
                 jobDao.updateAppliedStatus(jobId = jobId, isApplied = true)
                 emit(Resource.Success(body.conversation_id))
             } else {
-                emit(Resource.Error("Application failed"))
+                val detail = response.errorBody()?.string()?.trim().orEmpty()
+                emit(Resource.Error(detail.ifBlank { "Application failed (${response.code()})" }))
             }
         } catch (e: Exception) { emit(Resource.Error("Network error: ${e.message}")) }
     }
@@ -202,7 +238,8 @@ class JobRepositoryImpl @Inject constructor(
                 jobDao.insertJobs(listOf(job.toEntity()))
                 emit(Resource.Success(job))
             } else {
-                emit(Resource.Error("Failed to create job"))
+                val detail = response.errorBody()?.string()?.trim().orEmpty()
+                emit(Resource.Error(detail.ifBlank { "Failed to create job (${response.code()})" }))
             }
         } catch (e: Exception) { emit(Resource.Error("Network error: ${e.message}")) }
     }
@@ -286,67 +323,3 @@ class JobRepositoryImpl @Inject constructor(
     }
 }
 
-private fun createSampleNativeJobs(): List<Job> {
-    val now = System.currentTimeMillis()
-    val blueColor = androidx.compose.ui.graphics.Color(0xFF2196F3)
-    return listOf(
-        Job(
-            id = "job_native_1",
-            title = "Senior Android Developer",
-            companyName = "FirstApp Tech JHB",
-            companyLogoUrl = null,
-            location = "Johannesburg, Gauteng",
-            logoColor = blueColor,
-            salaryRange = "R65,000 - R85,000 / month",
-            jobType = "Full-time",
-            postedTime = now - (2 * 3600 * 1000L),
-            description = "We are seeking a talented Senior Android Developer to build next-generation messaging and social discovery experiences using Jetpack Compose, Kotlin Coroutines, and Hilt.",
-            requirements = listOf("5+ years Android development", "Expert in Kotlin & Compose", "Clean Architecture & Flow"),
-            isVerified = true,
-            isFeatured = true
-        ),
-        Job(
-            id = "job_native_2",
-            title = "UI/UX Product Designer",
-            companyName = "Design Studio JHB",
-            companyLogoUrl = null,
-            location = "Rosebank, Sandton",
-            logoColor = blueColor,
-            salaryRange = "R45,000 - R60,000 / month",
-            jobType = "Full-time",
-            postedTime = now - (5 * 3600 * 1000L),
-            description = "Join our creative product team designing intuitive mobile interfaces, design systems, and micro-interactions for millions of active users.",
-            requirements = listOf("Figma & Design Systems", "Mobile app prototyping", "User research & testing"),
-            isVerified = true
-        ),
-        Job(
-            id = "job_native_3",
-            title = "Full Stack Backend Engineer (Go/PostgreSQL)",
-            companyName = "Cloud Systems CPT",
-            companyLogoUrl = null,
-            location = "Cape Town / Remote",
-            logoColor = blueColor,
-            salaryRange = "R70,000 - R90,000 / month",
-            jobType = "Remote",
-            postedTime = now - (12 * 3600 * 1000L),
-            description = "Build high-throughput real-time APIs, WebSockets, and spatial PostGIS data services in Golang.",
-            requirements = listOf("3+ years Golang experience", "PostgreSQL & PostGIS", "WebSockets & Microservices"),
-            isVerified = true,
-            isFeatured = true
-        ),
-        Job(
-            id = "job_native_4",
-            title = "Digital Marketing & Growth Specialist",
-            companyName = "Media Matrix Midrand",
-            companyLogoUrl = null,
-            location = "Midrand / Sandton",
-            logoColor = blueColor,
-            salaryRange = "R25,000 - R35,000 / month",
-            jobType = "Contract",
-            postedTime = now - (24 * 3600 * 1000L),
-            description = "Drive user acquisition, community engagement, and social media campaigns for local brand initiatives.",
-            requirements = listOf("Social Media Strategy", "Content Creation", "Analytics & Growth Hacking"),
-            isVerified = false
-        )
-    )
-}

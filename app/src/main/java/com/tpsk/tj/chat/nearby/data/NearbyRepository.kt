@@ -1,9 +1,13 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tpsk.tj.chat.nearby.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import com.tpsk.tj.chat.nearby.data.api.ApiChatRequest
+import com.tpsk.tj.chat.nearby.data.api.ApiNearbyPost
 import com.tpsk.tj.chat.nearby.data.api.CreateChatRequestBody
 import com.tpsk.tj.chat.nearby.data.api.CreateNearbyPostRequest
 import com.tpsk.tj.chat.nearby.data.api.CreateNearbyReplyRequest
@@ -15,15 +19,28 @@ import com.tpsk.tj.chat.nearby.model.AreaPlace
 import com.tpsk.tj.chat.nearby.model.NearbyChatRequest
 import com.tpsk.tj.chat.nearby.model.NearbyPost
 import com.tpsk.tj.chat.nearby.model.NearbyReply
+import com.tpsk.tj.common.util.MediaUtils
 import com.tpsk.tj.common.util.Resource
+import com.tpsk.tj.media.data.api.MediaApi
+import com.tpsk.tj.media.util.MediaProcessor
 import retrofit2.Response
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
@@ -31,7 +48,8 @@ import kotlin.math.roundToInt
 @Singleton
 class NearbyRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val nearbyApi: NearbyApi
+    private val nearbyApi: NearbyApi,
+    private val mediaApi: MediaApi
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences("nearby_location_prefs", Context.MODE_PRIVATE)
     private val reportedPostIds = mutableSetOf<String>()
@@ -39,6 +57,41 @@ class NearbyRepository @Inject constructor(
 
     private val localPosts = MutableStateFlow<List<NearbyPost>>(emptyList())
     private val chatRequests = MutableStateFlow<List<NearbyChatRequest>>(emptyList())
+
+    fun observePosts(): StateFlow<List<NearbyPost>> = localPosts.asStateFlow()
+
+    fun findPost(id: String): NearbyPost? = localPosts.value.find { it.id == id }
+
+    suspend fun fetchPost(id: String): NearbyPost? {
+        val response = runCatching { nearbyApi.getPost(id) }.getOrNull() ?: return null
+        if (!response.isSuccessful) return null
+        val api = response.body() ?: return null
+        return NearbyPost(
+            id = api.id,
+            userId = api.user_id,
+            authorName = api.author_name,
+            authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(api.author_avatar_url),
+            content = api.content,
+            coarseAreaName = api.area_name.ifBlank { "Nearby" },
+            latitude = api.latitude,
+            longitude = api.longitude,
+            distanceKm = api.distance_km,
+            likeCount = api.like_count,
+            replyCount = api.reply_count,
+            isLiked = api.is_liked,
+            isResolved = api.is_resolved,
+            imageUrls = resolvedImageUrls(api),
+            createdAt = parseIsoTime(api.created_at)
+        )
+    }
+
+    suspend fun fetchPostImages(id: String): List<String> {
+        val cached = findPost(id)?.imageUrls.orEmpty()
+        if (cached.isNotEmpty()) return cached
+        val response = runCatching { nearbyApi.getPost(id) }.getOrNull() ?: return emptyList()
+        if (!response.isSuccessful) return emptyList()
+        return response.body()?.let { resolvedImageUrls(it) }.orEmpty()
+    }
 
     fun saveCoarseLocation(lat: Double, lng: Double, areaName: String) {
         val roundedLat = (lat * 1000).roundToInt() / 1000.0
@@ -105,6 +158,7 @@ class NearbyRepository @Inject constructor(
                         replyCount = maxOf(api.reply_count, api.replies?.size ?: 0),
                         isLiked = api.is_liked,
                         isResolved = api.is_resolved,
+                        imageUrls = resolvedImageUrls(api),
                         createdAt = parseIsoTime(api.created_at),
                         replies = api.replies?.map { r ->
                             NearbyReply(
@@ -123,10 +177,15 @@ class NearbyRepository @Inject constructor(
                     !reportedPostIds.contains(post.id) && !blockedUserIds.contains(post.userId)
                 }
                 // Merge with any local user-created posts not yet returned by server
-                val existingLocalOnly = localPosts.value.filter { local ->
-                    mapped.none { it.id == local.id }
+                val previousImages = localPosts.value.associate { it.id to it.imageUrls }
+                val withImages = mapped.map { post ->
+                    if (post.imageUrls.isNotEmpty()) post
+                    else post.copy(imageUrls = previousImages[post.id].orEmpty().mapNotNull { MediaUtils.formatUrl(it) })
                 }
-                val merged = existingLocalOnly + mapped
+                val existingLocalOnly = localPosts.value.filter { local ->
+                    withImages.none { it.id == local.id } && !local.id.startsWith("local_")
+                }
+                val merged = existingLocalOnly + withImages
                 localPosts.value = merged
                 emit(Resource.Success(merged))
             } else {
@@ -134,6 +193,22 @@ class NearbyRepository @Inject constructor(
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Network error fetching nearby posts", localPosts.value))
+        }
+    }
+
+    suspend fun pingArea(areaName: String, townName: String, lat: Double, lng: Double): Boolean {
+        if (areaName.isBlank() || lat == 0.0 || lng == 0.0) return false
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                nearbyApi.ping(
+                    com.tpsk.tj.chat.nearby.data.api.NearbyPingRequest(
+                        latitude = lat,
+                        longitude = lng,
+                        area_name = areaName,
+                        town_name = townName.ifBlank { areaName }
+                    )
+                ).isSuccessful
+            }.getOrDefault(false)
         }
     }
 
@@ -146,15 +221,19 @@ class NearbyRepository @Inject constructor(
         } else {
             nearbyApi.searchAreas(query.trim())
         }
-        if (!response.isSuccessful) error("Could not load posted areas (${response.code()})")
-        return response.body()?.areas.orEmpty().mapNotNull { area ->
+        if (!response.isSuccessful) {
+            if (response.code() == 404) return areasFromKnownPosts(query)
+            error("Could not load posted areas (${response.code()})")
+        }
+        val remote = response.body()?.areas.orEmpty().mapNotNull { area ->
             val label = area.display_name.ifBlank {
                 if (area.town.isBlank() || area.town.equals(area.name, true)) area.name else "${area.name}, ${area.town}"
             }.trim()
             if (label.isBlank() || label.equals("Nearby", true) || label.equals("Braamfontein", true)) return@mapNotNull null
             if (area.latitude == 0.0 || area.longitude == 0.0) return@mapNotNull null
-            AreaPlace(label, area.latitude, area.longitude, area.post_count)
+            AreaPlace(label, area.latitude, area.longitude, area.post_count, area.view_count)
         }
+        return remote.ifEmpty { areasFromKnownPosts(query) }
     }
 
     fun createPost(
@@ -168,8 +247,8 @@ class NearbyRepository @Inject constructor(
         imageUrls: List<String> = emptyList()
     ): Flow<Resource<NearbyPost>> = flow {
         val trimmed = content.trim().replace(Regex("\\s+"), " ")
-        if (trimmed.isBlank()) {
-            emit(Resource.Error("Post content cannot be empty"))
+        if (trimmed.isBlank() && imageUrls.isEmpty()) {
+            emit(Resource.Error("Add text or a photo before posting"))
             return@flow
         }
         if (trimmed.length > 500) {
@@ -179,25 +258,28 @@ class NearbyRepository @Inject constructor(
 
         emit(Resource.Loading())
         try {
+            val uploaded = uploadLocalMedia(imageUrls)
             val postLat = latitude ?: getCachedCoarseLat()
             val postLng = longitude ?: getCachedCoarseLng()
             val targetArea = areaName?.takeIf { it.isNotBlank() } ?: getCachedCoarseAreaName()
             val req = CreateNearbyPostRequest(
-                content = trimmed,
+                content = trimmed.ifBlank { "Photo" },
                 area_name = targetArea,
                 latitude = postLat,
-                longitude = postLng
+                longitude = postLng,
+                image_urls = uploaded
             )
             val response = nearbyApi.createPost(req)
             if (response.isSuccessful && response.body() != null) {
                 val api = response.body()!!
+                val savedImages = resolvedImageUrls(api).ifEmpty { uploaded.mapNotNull { MediaUtils.formatUrl(it) } }
                 val newPost = NearbyPost(
                     id = api.id,
                     userId = api.user_id,
                     authorName = if (api.author_name.isNotBlank() && api.author_name != "User") api.author_name else authorName,
-                    authorAvatarUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(api.author_avatar_url) ?: authorAvatarUrl,
+                    authorAvatarUrl = MediaUtils.formatUrl(api.author_avatar_url) ?: authorAvatarUrl,
                     authorAvatarColor = Color(0xFF00B4D8),
-                    content = api.content,
+                    content = api.content.ifBlank { trimmed },
                     coarseAreaName = api.area_name.ifBlank { targetArea },
                     latitude = api.latitude,
                     longitude = api.longitude,
@@ -205,44 +287,16 @@ class NearbyRepository @Inject constructor(
                     likeCount = api.like_count,
                     replyCount = api.reply_count,
                     isLiked = false,
-                    imageUrls = imageUrls,
+                    imageUrls = savedImages,
                     createdAt = parseIsoTime(api.created_at)
                 )
-                localPosts.value = listOf(newPost) + localPosts.value
+                localPosts.value = listOf(newPost) + localPosts.value.filter { it.id != newPost.id }
                 emit(Resource.Success(newPost))
             } else {
-                // Fallback offline post insertion
-                val fallbackPost = NearbyPost(
-                    id = "local_${System.currentTimeMillis()}",
-                    userId = authorId,
-                    authorName = authorName,
-                    authorAvatarUrl = authorAvatarUrl,
-                    content = trimmed,
-                    coarseAreaName = targetArea,
-                    latitude = postLat,
-                    longitude = postLng,
-                    imageUrls = imageUrls,
-                    createdAt = System.currentTimeMillis()
-                )
-                localPosts.value = listOf(fallbackPost) + localPosts.value
-                emit(Resource.Success(fallbackPost))
+                emit(Resource.Error(response.errorText("Could not publish nearby post")))
             }
         } catch (e: Exception) {
-            val targetArea = areaName?.takeIf { it.isNotBlank() } ?: getCachedCoarseAreaName()
-            val fallbackPost = NearbyPost(
-                id = "local_${System.currentTimeMillis()}",
-                userId = authorId,
-                authorName = authorName,
-                authorAvatarUrl = authorAvatarUrl,
-                content = trimmed,
-                coarseAreaName = targetArea,
-                latitude = latitude ?: 0.0,
-                longitude = longitude ?: 0.0,
-                imageUrls = imageUrls,
-                createdAt = System.currentTimeMillis()
-            )
-            localPosts.value = listOf(fallbackPost) + localPosts.value
-            emit(Resource.Success(fallbackPost))
+            emit(Resource.Error(e.message ?: "Could not publish nearby post"))
         }
     }
 
@@ -264,6 +318,7 @@ class NearbyRepository @Inject constructor(
                         likeCount = api.like_count,
                         replyCount = api.reply_count,
                         isResolved = api.is_resolved,
+                        imageUrls = resolvedImageUrls(api),
                         createdAt = parseIsoTime(api.created_at)
                     )
                 }
@@ -501,6 +556,60 @@ class NearbyRepository @Inject constructor(
         } catch (e: Exception) {
             System.currentTimeMillis()
         }
+    }
+
+    private fun resolvedImageUrls(api: ApiNearbyPost): List<String> {
+        return api.image_urls.mapNotNull { MediaUtils.formatUrl(it) }
+    }
+
+    private fun areasFromKnownPosts(query: String): List<AreaPlace> {
+        val needle = query.trim()
+        return localPosts.value.mapNotNull { post ->
+            val label = post.coarseAreaName.trim()
+            if (label.isBlank() || label.equals("Nearby", true) || label.equals("Braamfontein", true)) return@mapNotNull null
+            if (post.latitude == 0.0 || post.longitude == 0.0) return@mapNotNull null
+            if (needle.isNotEmpty() && !label.contains(needle, true)) return@mapNotNull null
+            AreaPlace(label, post.latitude, post.longitude, 1)
+        }.distinctBy { it.displayName.lowercase() }
+    }
+
+    private suspend fun uploadLocalMedia(uris: List<String>): List<String> = withContext(Dispatchers.IO) {
+        uris.take(4).map { raw ->
+            if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("uploads/") || raw.startsWith("/uploads/")) {
+                raw
+            } else {
+                val uri = Uri.parse(raw)
+                val mime = context.contentResolver.getType(uri).orEmpty()
+                val file = if (mime.startsWith("video/")) {
+                    com.tpsk.tj.common.util.VideoTransformerManager.exportForUpload(
+                        context, uri, com.tpsk.tj.common.util.VideoUploadProfile.GENERAL
+                    )
+                } else {
+                    MediaProcessor.processAndStripExif(context, uri)
+                }
+                try {
+                    val mimeType = if (mime.startsWith("video/")) mime else "image/jpeg"
+                    val body = MultipartBody.Part.createFormData("file", file.name, file.asRequestBody(mimeType.toMediaTypeOrNull()))
+                    val folder = "nearby".toRequestBody("text/plain".toMediaTypeOrNull())
+                    val upload = mediaApi.uploadMedia(body, folder)
+                    val url = upload.body()?.url
+                    if (!upload.isSuccessful || url.isNullOrBlank()) {
+                        error("Photo upload failed (${upload.code()})")
+                    }
+                    url
+                } finally {
+                    if (file.exists()) file.delete()
+                }
+            }
+        }
+    }
+
+    private fun copyUriToCache(uri: Uri, extension: String): File {
+        val out = File(context.cacheDir, "nearby_${UUID.randomUUID()}.$extension")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            out.outputStream().use { output -> input.copyTo(output) }
+        } ?: error("Could not open the selected photo")
+        return out
     }
 }
 

@@ -15,9 +15,13 @@ data class ApiContest(
     val hashtag: String = "",
     @SerializedName("participant_limit") val participantLimit: Int = 20,
     @SerializedName("ends_at") val endsAt: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("vote_count") val voteCount: Int = 0,
     @SerializedName("entry_count") val entryCount: Int = 0,
     @SerializedName("host_name") val hostName: String? = null,
+    @SerializedName("preview_name") val previewName: String? = null,
+    @SerializedName("preview_avatar_url") val previewAvatarUrl: String? = null,
+    @SerializedName("cover_url") val coverUrl: String? = null,
     val codes: List<String>? = null
 )
 
@@ -25,6 +29,7 @@ data class ApiContestListResponse(val contests: List<ApiContest> = emptyList())
 
 data class ApiLeaderboardEntry(
     @SerializedName("post_id") val postId: String = "",
+    @SerializedName("author_id") val authorId: String = "",
     @SerializedName("author_name") val authorName: String = "",
     @SerializedName("avatar_url") val avatarUrl: String? = null,
     val votes: Int = 0

@@ -22,9 +22,11 @@ import com.tpsk.tj.common.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -49,6 +51,7 @@ data class NearbyUiState(
     val areasLoading: Boolean = false,
     val areasError: String? = null,
     val emptyReason: String? = null,
+    val areaViewCount: Int = 0,
     val errorMessage: String? = null,
     val isCachedLocation: Boolean = false,
     val activeThreadPost: NearbyPost? = null,
@@ -79,6 +82,32 @@ class NearbyViewModel @Inject constructor(
                 (chatRequests as MutableStateFlow).value = list
             }
         }
+        viewModelScope.launch {
+            repository.observePosts().collect { incoming ->
+                val city = _uiState.value.selectedCity
+                val visible = if (city.isNullOrBlank()) incoming else incoming.filter {
+                    it.coarseAreaName.contains(city, ignoreCase = true) ||
+                        city.contains(it.coarseAreaName, ignoreCase = true)
+                }
+                if (visible.isEmpty() && _uiState.value.posts.isEmpty()) return@collect
+                val active = _uiState.value.activeThreadPost
+                val updatedActive = active?.let { current ->
+                    incoming.find { it.id == current.id }?.let { fresh ->
+                        current.copy(
+                            imageUrls = fresh.imageUrls.ifEmpty { current.imageUrls },
+                            content = fresh.content.ifBlank { current.content },
+                            authorAvatarUrl = fresh.authorAvatarUrl ?: current.authorAvatarUrl
+                        )
+                    }
+                } ?: active
+                _uiState.value = _uiState.value.copy(
+                    posts = visible,
+                    isLoading = false,
+                    emptyReason = if (visible.isEmpty()) "EMPTY_AREA" else null,
+                    activeThreadPost = updatedActive
+                )
+            }
+        }
     }
 
     fun refreshLocationAndFeed() {
@@ -86,6 +115,7 @@ class NearbyViewModel @Inject constructor(
             val pinned = _uiState.value
             if (pinned.areaPinned && !pinned.selectedCity.isNullOrBlank() && pinned.hasLocationFix) {
                 loadFeed(pinned.userLat, pinned.userLng, pinned.radiusKm, pinned.selectedCity)
+                maybePing(pinned.userLat, pinned.userLng, pinned.selectedCity.orEmpty())
                 return@launch
             }
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
@@ -118,6 +148,61 @@ class NearbyViewModel @Inject constructor(
             )
 
             loadFeed(resolved.lat, resolved.lng, _uiState.value.radiusKm, _uiState.value.selectedCity)
+            maybePing(resolved.lat, resolved.lng, resolved.area)
+        }
+    }
+
+    private fun maybePing(lat: Double, lng: Double, area: String) {
+        if (lat == 0.0 || lng == 0.0 || area.isBlank() || area.equals("Nearby", ignoreCase = true)) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val prefs = context.getSharedPreferences("nearby_checkin", Context.MODE_PRIVATE)
+            val lastAt = prefs.getLong("at", 0L)
+            val lastLat = prefs.getFloat("lat", 0f).toDouble()
+            val lastLng = prefs.getFloat("lng", 0f).toDouble()
+            val moved = FloatArray(1)
+            if (lastAt > 0L) {
+                android.location.Location.distanceBetween(lastLat, lastLng, lat, lng, moved)
+            }
+            val stale = System.currentTimeMillis() - lastAt >= 4 * 60 * 60 * 1000L
+            if (lastAt > 0L && !stale && moved[0] < 2000f) return@launch
+            val parts = area.split(",", limit = 2).map { it.trim() }
+            val name = parts.firstOrNull().orEmpty()
+            val town = parts.getOrNull(1).orEmpty().ifBlank { name }
+            if (!repository.pingArea(name, town, lat, lng)) return@launch
+            prefs.edit()
+                .putLong("at", System.currentTimeMillis())
+                .putFloat("lat", lat.toFloat())
+                .putFloat("lng", lng.toFloat())
+                .apply()
+        }
+    }
+
+    private fun refreshAreaPresence() {
+        val area = _uiState.value.coarseAreaName
+        if (area.isBlank() || area.equals("Nearby", ignoreCase = true)) return
+        viewModelScope.launch {
+            val count = runCatching {
+                repository.searchPostedAreas(area, _uiState.value.userLat, _uiState.value.userLng)
+                    .firstOrNull {
+                        it.displayName.equals(area, ignoreCase = true) ||
+                            area.contains(it.displayName, ignoreCase = true)
+                    }?.viewCount ?: 0
+            }.getOrDefault(0)
+            _uiState.value = _uiState.value.copy(areaViewCount = count)
+        }
+    }
+
+    fun refreshOpenThread() {
+        val postId = _uiState.value.activeThreadPost?.id?.takeIf { it.isNotBlank() } ?: return
+        viewModelScope.launch {
+            repository.getRepliesForPost(postId).collect { res ->
+                val current = _uiState.value.activeThreadPost
+                if (current?.id != postId || res !is Resource.Success) return@collect
+                val replies = res.data.orEmpty()
+                _uiState.value = _uiState.value.copy(
+                    activeThreadPost = current.copy(replyCount = replies.size, replies = replies)
+                )
+            }
         }
     }
 
@@ -146,6 +231,7 @@ class NearbyViewModel @Inject constructor(
                             emptyReason = reason
                         )
                         relabelPlaceholderAreas(postsList)
+                        if (postsList.isEmpty()) refreshAreaPresence() else _uiState.value = _uiState.value.copy(areaViewCount = 0)
                     }
                     is Resource.Error -> {
                         _uiState.value = _uiState.value.copy(
@@ -622,12 +708,33 @@ class NearbyViewModel @Inject constructor(
     }
 
     fun openThread(post: NearbyPost) {
+        val stored = repository.findPost(post.id)
+        val enriched = post.copy(
+            imageUrls = post.imageUrls.ifEmpty { stored?.imageUrls.orEmpty() },
+            authorAvatarUrl = post.authorAvatarUrl ?: stored?.authorAvatarUrl,
+            replies = emptyList()
+        )
         _uiState.value = _uiState.value.copy(
-            activeThreadPost = post.copy(replies = emptyList()),
+            activeThreadPost = enriched,
             isLoading = true,
             errorMessage = null
         )
         viewModelScope.launch {
+            if (post.content.isBlank() || post.userId.isBlank()) {
+                val loaded = runCatching { repository.fetchPost(post.id) }.getOrNull()
+                if (loaded != null && _uiState.value.activeThreadPost?.id == post.id) {
+                    _uiState.value = _uiState.value.copy(activeThreadPost = loaded.copy(replies = emptyList()))
+                }
+            }
+            val current = _uiState.value.activeThreadPost
+            if (current?.id == post.id && current.imageUrls.isEmpty()) {
+                val images = runCatching { repository.fetchPostImages(post.id) }.getOrDefault(emptyList())
+                if (images.isNotEmpty() && _uiState.value.activeThreadPost?.id == post.id) {
+                    _uiState.value = _uiState.value.copy(
+                        activeThreadPost = _uiState.value.activeThreadPost?.copy(imageUrls = images)
+                    )
+                }
+            }
             repository.getRepliesForPost(post.id).collect { res ->
                 val currentActive = _uiState.value.activeThreadPost
                 if (currentActive?.id != post.id) return@collect

@@ -75,7 +75,7 @@ fun CreateNearbyPostScreen(
                 actions = {
                     Button(
                         onClick = {
-                            if (postContent.trim().isBlank() || isPublishing) return@Button
+                            if ((postContent.trim().isBlank() && attachedImages.isEmpty()) || isPublishing) return@Button
                             isPublishing = true
                             nearbyViewModel.createPostWithImages(
                                 content = postContent,
@@ -95,7 +95,7 @@ fun CreateNearbyPostScreen(
                                 }
                             )
                         },
-                        enabled = postContent.trim().isNotBlank() && !isPublishing,
+                        enabled = (postContent.trim().isNotBlank() || attachedImages.isNotEmpty()) && !isPublishing,
                         shape = RoundedCornerShape(20.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B4D8)),
                         modifier = Modifier.padding(end = 12.dp)
@@ -485,7 +485,13 @@ private fun PostedAreaRow(area: AreaPlace, currentArea: String, onClick: () -> U
                     color = if (area.displayName == currentArea) Color(0xFF00B4D8) else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = if (area.postCount == 1) "1 post" else "${area.postCount} posts",
+                    text = when {
+                        area.postCount == 1 -> "1 post"
+                        area.postCount > 1 -> "${area.postCount} posts"
+                        area.viewCount == 1 -> "1 person checking in"
+                        area.viewCount > 1 -> "${area.viewCount} people checking in"
+                        else -> "No posts yet"
+                    },
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

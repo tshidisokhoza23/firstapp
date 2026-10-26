@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.tpsk.tj.media.ui.viewmodel.MediaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,37 +25,16 @@ fun TrendingFeedScreen(
     onNavigateBack: () -> Unit,
     onTopicClick: (String) -> Unit,
     onRefresh: () -> Unit = {},
-    darkTheme: Boolean = isSystemInDarkTheme()
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    viewModel: MediaViewModel = hiltViewModel()
 ) {
     val bgColor = if (darkTheme) Color(0xFF121417) else Color(0xFFFFFFFF)
     val textColor = if (darkTheme) Color(0xFFF3F4F6) else Color(0xFF000000)
     val dividerColor = if (darkTheme) Color(0xFF22262C) else Color(0xFFEEEEEE)
 
-    // Dynamic Top 20 Trending Dataset
-    val trendingTopics = remember {
-        listOf(
-            "The ConCourt",
-            "Edwin Sifuna",
-            "Fikile Mbalula",
-            "Julius Malema",
-            "#HuntersICED",
-            "#ChillersLager",
-            "#Sibiya",
-            "LGE 2026",
-            "#MissThembisa",
-            "#FridayFeeling",
-            "Bafana Bafana",
-            "#AmapianoAwards",
-            "Kabelo",
-            "Stage 2",
-            "Midrand N1",
-            "#SowetoDerby",
-            "SARS",
-            "Gold Reef",
-            "#TaxSeason",
-            "Uncle Waffles"
-        )
-    }
+    val uiState by viewModel.uiState.collectAsState()
+    val trendingTopics = uiState.trendingTopics
+    LaunchedEffect(Unit) { viewModel.fetchTrendingTopics() }
 
     Scaffold(
         topBar = {
@@ -71,7 +52,10 @@ fun TrendingFeedScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefresh) {
+                    IconButton(onClick = {
+                        viewModel.fetchTrendingTopics()
+                        onRefresh()
+                    }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = textColor)
                     }
                 },
@@ -85,18 +69,32 @@ fun TrendingFeedScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            if (trendingTopics.isEmpty()) {
+                item {
+                    Text(
+                        text = "Nothing is moving fast enough to trend yet.",
+                        color = textColor.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 28.dp)
+                    )
+                }
+            }
             itemsIndexed(trendingTopics.take(20)) { _, topic ->
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onTopicClick(topic) }
+                        .clickable { onTopicClick(topic.tag) }
                         .padding(horizontal = 20.dp, vertical = 18.dp)
                 ) {
                     Text(
-                        text = topic,
+                        text = topic.tag,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = textColor
+                    )
+                    Text(
+                        text = "${formatTrendCount(topic.post_count)} posts",
+                        fontSize = 13.sp,
+                        color = textColor.copy(alpha = 0.65f)
                     )
                 }
                 HorizontalDivider(
@@ -106,5 +104,13 @@ fun TrendingFeedScreen(
                 )
             }
         }
+    }
+}
+
+private fun formatTrendCount(count: Long): String {
+    return when {
+        count >= 1_000_000 -> String.format("%.1fM", count / 1_000_000.0)
+        count >= 1_000 -> String.format("%.1fK", count / 1_000.0)
+        else -> count.toString()
     }
 }

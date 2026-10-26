@@ -142,6 +142,17 @@ class JobViewModel @Inject constructor(
         viewModelScope.launch { repository.withdrawApplication(applicationId).collect { } }
     }
 
+    fun clearCreateResult() {
+        _createJobResult.value = null
+    }
+
+    fun toggleSave(job: Job) {
+        viewModelScope.launch {
+            repository.setJobSaved(job.id, !job.isSaved)
+            fetchJobs()
+        }
+    }
+
     fun createJob(
         title: String,
         description: String,

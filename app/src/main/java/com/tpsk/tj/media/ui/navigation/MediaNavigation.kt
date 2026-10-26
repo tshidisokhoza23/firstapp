@@ -115,7 +115,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             },
             onHashtagClick = { tag ->
                 val clean = tag.removePrefix("#").trim()
-                if (clean.isNotBlank()) navController.navigate(Screen.ContestFeed.createRoute(clean))
+                if (clean.isNotBlank()) navController.navigate(com.tpsk.tj.media.ui.components.hashtagRoute(clean))
             }
         )
     }
@@ -163,7 +163,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
             },
             onHashtagClick = { tag ->
                 val clean = tag.removePrefix("#").trim()
-                if (clean.isNotBlank()) navController.navigate(Screen.ContestFeed.createRoute(clean))
+                if (clean.isNotBlank()) navController.navigate(com.tpsk.tj.media.ui.components.hashtagRoute(clean))
             }
         )
     }
@@ -211,6 +211,7 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
 
         com.tpsk.tj.media.ui.screens.CreatePostScreen(
             replyToPost = replyPost,
+            replyTargetId = replyId,
             quotingPost = quotePost,
             onDismiss = { navController.popBackStack() },
             onPostCreated = { navController.popBackStack() },
@@ -268,6 +269,43 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
                 if (userId.isNotBlank() && userId != "null") {
                     navController.navigate(Screen.UserProfile.createRoute(userId))
                 }
+            },
+            onNotAContest = {
+                navController.navigate(Screen.HashtagFeed.createRoute(hashtag)) {
+                    popUpTo(backStackEntry.destination.id) { inclusive = true }
+                }
+            },
+            onHashtagClick = { tag ->
+                val clean = tag.removePrefix("#").trim()
+                if (clean.isNotBlank()) navController.navigate(com.tpsk.tj.media.ui.components.hashtagRoute(clean))
+            }
+        )
+    }
+
+    composable(
+        route = Screen.HashtagFeed.route,
+        arguments = listOf(navArgument("hashtag") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val hashtag = backStackEntry.arguments?.getString("hashtag") ?: ""
+        com.tpsk.tj.ui.screens.hashtag.HashtagFeedScreen(
+            hashtag = hashtag,
+            onNavigateBack = { navController.popBackStack() },
+            onOpenContest = {
+                navController.navigate(Screen.ContestFeed.createRoute(hashtag)) {
+                    popUpTo(backStackEntry.destination.id) { inclusive = true }
+                }
+            },
+            onPostClick = { postId ->
+                navController.navigate(Screen.PostDetail.createRoute(postId))
+            },
+            onProfileClick = { userId ->
+                if (userId.isNotBlank() && userId != "null") {
+                    navController.navigate(Screen.UserProfile.createRoute(userId))
+                }
+            },
+            onHashtagClick = { tag ->
+                val clean = tag.removePrefix("#").trim()
+                if (clean.isNotBlank()) navController.navigate(com.tpsk.tj.media.ui.components.hashtagRoute(clean))
             }
         )
     }
@@ -287,9 +325,9 @@ fun NavGraphBuilder.mediaNavGraph(navController: NavHostController) {
         com.tpsk.tj.ui.screens.trending.TrendingFeedScreen(
             onNavigateBack = { navController.popBackStack() },
             onTopicClick = { topic ->
-                val tag = if (topic.startsWith("#")) topic else "#$topic"
-                navController.navigate(Screen.Main.createRoute(tab = "social", subTab = tag)) {
-                    popUpTo(Screen.Main.route) { inclusive = false }
+                val clean = topic.removePrefix("#").trim()
+                if (clean.isNotBlank()) {
+                    navController.navigate(com.tpsk.tj.media.ui.components.hashtagRoute(clean))
                 }
             }
         )

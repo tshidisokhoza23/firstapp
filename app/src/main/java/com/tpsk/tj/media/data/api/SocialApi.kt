@@ -294,7 +294,8 @@ data class CreatePostRequest(
     @SerializedName("root_post_id") val root_post_id: String? = null,
     @SerializedName("category_id") val category_id: String? = null,
     @SerializedName("repost_of_id") val repost_of_id: String? = null,
-    @SerializedName("thumbnail_url") val thumbnail_url: String? = null
+    @SerializedName("thumbnail_url") val thumbnail_url: String? = null,
+    @SerializedName("contest_entry") val contest_entry: Boolean = false
 )
 
 data class CreatePollRequest(

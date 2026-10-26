@@ -50,7 +50,7 @@ fun MingleNotificationScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mingle Activity", fontWeight = FontWeight.Bold) },
+                title = { Text("Friends Activity", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -91,14 +91,14 @@ fun MingleNotificationScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No Mingle Activity Yet",
+                        text = "No Friends Activity Yet",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "When people like or match with your Mingle profile, they will appear right here.",
+                        text = "When people like or match with your Friends profile, they will appear right here.",
                         textAlign = TextAlign.Center,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

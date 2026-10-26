@@ -717,12 +717,12 @@ fun MainFeedSection(
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = 16.dp + bottomPadding)
+                            contentPadding = PaddingValues(bottom = 112.dp + bottomPadding)
                         ) {
 
             val organicCount = posts.itemCount
             val postsPerAd = 5
-            val adSlots = organicCount / postsPerAd
+            val adSlots = if (organicCount >= postsPerAd) organicCount / postsPerAd else 0
             val rowCount = organicCount + adSlots
             items(
                 count = rowCount,
@@ -731,7 +731,9 @@ fun MainFeedSection(
                     val isAd = adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots
                     if (isAd) "feed-ad-$adsBefore" else {
                         val postIndex = row - adsBefore
-                        posts.peek(postIndex)?.id?.let { "post-$it" } ?: "loading-post-$postIndex"
+                        if (postIndex in 0 until posts.itemCount) {
+                            try { posts.peek(postIndex)?.id?.let { "post-$it" } } catch (e: Exception) { null } ?: "loading-post-$postIndex"
+                        } else "loading-post-$postIndex"
                     }
                 },
                 contentType = { row ->
@@ -742,16 +744,16 @@ fun MainFeedSection(
                 val adsBefore = row / (postsPerAd + 1)
                 val isAd = adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots
                 if (isAd) {
-                    com.tpsk.tj.common.ui.components.DynamicAdCard(
-                        adManager = adManager,
+                    com.tpsk.tj.common.ui.components.FeedNativeAd(
                         adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
                         slotKey = "feed-ad-$adsBefore",
-                        reserveSlot = true,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 } else {
                     val postIndex = row - adsBefore
-                    val post = if (postIndex < posts.itemCount) posts[postIndex] else null
+                    val post = if (postIndex in 0 until posts.itemCount) {
+                        try { posts[postIndex] } catch (e: Exception) { null }
+                    } else null
                     if (post == null) {
                         PostItemShimmer()
                     } else {

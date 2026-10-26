@@ -36,6 +36,7 @@ import com.tpsk.tj.chat.nearby.model.NearbyReply
 import com.tpsk.tj.chat.nearby.ui.viewmodel.NearbyViewModel
 import com.tpsk.tj.common.ui.viewmodel.UserViewModel
 import com.tpsk.tj.common.util.formatTwitterTime
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 val AccentCyan = Color(0xFF00B4D8)
@@ -71,8 +72,24 @@ fun DiscussionThreadScreen(
         currentUser?.displayName?.ifBlank { currentUser?.username }?.ifBlank { "You" } ?: "You"
     }
 
-    val repliesList = uiState.activeThreadPost?.takeIf { it.id == postId }?.replies.orEmpty()
+    val loadedPost = uiState.activeThreadPost?.takeIf { it.id == postId }
+    val shownAuthor = loadedPost?.authorName?.takeIf { it.isNotBlank() } ?: authorName
+    val shownContent = loadedPost?.content?.takeIf { it.isNotBlank() } ?: postContent
+    val shownAuthorId = loadedPost?.userId?.takeIf { it.isNotBlank() } ?: authorId
+    val shownDistance = if (loadedPost != null && loadedPost.distanceKm > 0.0) {
+        String.format(java.util.Locale.US, "%.1f km away", loadedPost.distanceKm)
+    } else {
+        authorDistance
+    }
+    val repliesList = loadedPost?.replies.orEmpty()
     val participantCount = repliesList.size + 1
+
+    LaunchedEffect(postId) {
+        while (true) {
+            delay(8_000)
+            nearbyViewModel.refreshOpenThread()
+        }
+    }
 
     LaunchedEffect(postId) {
         nearbyViewModel.openThread(
@@ -93,9 +110,9 @@ fun DiscussionThreadScreen(
         }
     }
 
-    val resolvedTitle = remember(authorName, postTitle) {
+    val resolvedTitle = remember(shownAuthor, postTitle) {
         if (postTitle.isNotBlank()) postTitle
-        else "${authorName.ifBlank { "Nearby" }}'s Public Thread"
+        else "${shownAuthor.ifBlank { "Nearby" }}'s Public Thread"
     }
 
     val resolvedSubtitle = remember(postSubtitle, participantCount) {
@@ -177,10 +194,10 @@ fun DiscussionThreadScreen(
                                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    if (authorId.isBlank()) {
+                                    if (shownAuthorId.isBlank()) {
                                         Toast.makeText(context, "Profile is not available for this post", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        onOpenProfile(authorId)
+                                        onOpenProfile(shownAuthorId)
                                     }
                                 }
                             )
@@ -199,10 +216,10 @@ fun DiscussionThreadScreen(
                                 leadingIcon = { Icon(Icons.Default.Block, contentDescription = null) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    if (authorId.isBlank()) {
+                                    if (shownAuthorId.isBlank()) {
                                         Toast.makeText(context, "Could not identify the author", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        nearbyViewModel.blockUser(authorId)
+                                        nearbyViewModel.blockUser(shownAuthorId)
                                         Toast.makeText(context, "Author blocked", Toast.LENGTH_SHORT).show()
                                         onBack()
                                     }
@@ -400,7 +417,7 @@ fun DiscussionThreadScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "${authorName.ifBlank { "Author" }} • ${authorDistance.ifBlank { "1.5 km away" }} • ${authorTime.ifBlank { "5m" }}",
+                        text = "${shownAuthor.ifBlank { "Author" }} • ${shownDistance.ifBlank { "Nearby" }} • ${authorTime.ifBlank { "now" }}",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         color = Color.White
@@ -409,11 +426,17 @@ fun DiscussionThreadScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = postContent.ifBlank { "Original question / topic body" },
+                        text = shownContent.ifBlank { "Loading nearby post..." },
                         fontSize = 14.sp,
                         lineHeight = 20.sp,
                         color = Color.White.copy(alpha = 0.95f)
                     )
+                    val threadImages = uiState.activeThreadPost?.imageUrls?.takeIf { it.isNotEmpty() }
+                        ?: uiState.posts.find { it.id == postId }?.imageUrls.orEmpty()
+                    if (threadImages.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        NearbyPostImages(threadImages)
+                    }
                 }
             }
 

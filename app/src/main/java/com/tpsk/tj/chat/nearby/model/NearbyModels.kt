@@ -41,7 +41,8 @@ data class AreaPlace(
     val displayName: String,
     val latitude: Double,
     val longitude: Double,
-    val postCount: Int = 0
+    val postCount: Int = 0,
+    val viewCount: Int = 0
 )
 
 data class NearbyChatRequest(

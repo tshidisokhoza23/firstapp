@@ -18,6 +18,7 @@ data class ApiNearbyPost(
     val created_at: String? = null,
     val distance_km: Double = 1.0,
     val is_resolved: Boolean = false,
+    val image_urls: List<String> = emptyList(),
     val replies: List<ApiNearbyReply>? = null
 )
 
@@ -43,7 +44,8 @@ data class CreateNearbyPostRequest(
     val content: String,
     val area_name: String = "Nearby",
     val latitude: Double = 0.0,
-    val longitude: Double = 0.0
+    val longitude: Double = 0.0,
+    val image_urls: List<String> = emptyList()
 )
 
 data class CreateNearbyReplyRequest(
@@ -61,7 +63,15 @@ data class ApiArea(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val post_count: Int = 0,
+    val view_count: Int = 0,
     val display_name: String = ""
+)
+
+data class NearbyPingRequest(
+    val latitude: Double,
+    val longitude: Double,
+    val area_name: String,
+    val town_name: String
 )
 
 data class AreasResponse(
@@ -109,6 +119,9 @@ interface NearbyApi {
         @Query("q") query: String
     ): Response<AreasResponse>
 
+    @POST("nearby/ping")
+    suspend fun ping(@Body request: NearbyPingRequest): Response<Unit>
+
     @GET("nearby/areas/suggest")
     suspend fun suggestAreas(
         @Query("lat") lat: Double? = null,
@@ -146,6 +159,11 @@ interface NearbyApi {
 
     @GET("nearby/posts/mine")
     suspend fun getMyPosts(): Response<NearbyPostsResponse>
+
+    @GET("nearby/posts/{id}")
+    suspend fun getPost(
+        @Path("id") id: String
+    ): Response<ApiNearbyPost>
 
     @PATCH("nearby/posts/{id}")
     suspend fun updatePost(

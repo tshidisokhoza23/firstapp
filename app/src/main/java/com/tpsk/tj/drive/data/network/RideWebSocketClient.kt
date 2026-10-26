@@ -26,11 +26,12 @@ sealed class RideEvent {
         val destLat: Double = 0.0,
         val destLng: Double = 0.0
     ) : RideEvent()
-    data class RequestAccepted(val tripId: String, val driverName: String, val vehicle: String, val plate: String) : RideEvent()
+    data class RequestAccepted(val tripId: String, val driverName: String, val vehicle: String, val plate: String, val photos: List<String> = emptyList(), val driverPhoto: String = "") : RideEvent()
     data class DriverArrived(val tripId: String) : RideEvent()
     data class TripStarted(val tripId: String) : RideEvent()
     data class TripCompleted(val tripId: String, val fare: Double) : RideEvent()
     data class LocationUpdated(val tripId: String, val lat: Double, val lng: Double, val rotation: Float) : RideEvent()
+    data class RequestClosed(val tripId: String, val message: String) : RideEvent()
 }
 
 private data class WireRideEvent(
@@ -43,11 +44,14 @@ private data class WireRideEvent(
     val fare: Double? = null,
     val vehicle: String? = null,
     val plate: String? = null,
+    @SerializedName("vehicle_photos") val vehiclePhotos: List<String>? = null,
+    @SerializedName("driver_photo") val driverPhoto: String? = null,
     val lat: Double? = null,
     val lng: Double? = null,
     @SerializedName("dest_lat") val destLat: Double? = null,
     @SerializedName("dest_lng") val destLng: Double? = null,
-    val rotation: Float? = null
+    val rotation: Float? = null,
+    val message: String? = null
 )
 
 @Singleton
@@ -116,11 +120,12 @@ class RideWebSocketClient @Inject constructor(
                     wire.tripId, wire.passengerName ?: "User", wire.pickup ?: "", wire.dest ?: "", wire.fare ?: 0.0,
                     wire.lat ?: 0.0, wire.lng ?: 0.0, wire.destLat ?: 0.0, wire.destLng ?: 0.0
                 )
-                "RIDE_ACCEPTED" -> RideEvent.RequestAccepted(wire.tripId, wire.driverName ?: "Driver", wire.vehicle ?: "", wire.plate ?: "")
+                "RIDE_ACCEPTED" -> RideEvent.RequestAccepted(wire.tripId, wire.driverName ?: "Driver", wire.vehicle ?: "", wire.plate ?: "", wire.vehiclePhotos.orEmpty(), wire.driverPhoto.orEmpty())
                 "DRIVER_ARRIVED" -> RideEvent.DriverArrived(wire.tripId)
                 "TRIP_STARTED" -> RideEvent.TripStarted(wire.tripId)
                 "TRIP_COMPLETED" -> RideEvent.TripCompleted(wire.tripId, wire.fare ?: 0.0)
                 "LOCATION_UPDATE" -> RideEvent.LocationUpdated(wire.tripId, wire.lat ?: 0.0, wire.lng ?: 0.0, wire.rotation ?: 0f)
+                "RIDE_CLOSED", "RIDE_CANCELLED" -> RideEvent.RequestClosed(wire.tripId, wire.message ?: "This ride is no longer active")
                 else -> null
             }
             event?.let { _events.emit(it) }

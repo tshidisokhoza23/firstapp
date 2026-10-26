@@ -20,6 +20,33 @@ data class FlattenedThreadItem(
  * Flattens a recursive tree into a linear list suitable for LazyColumn
  * while preserving all metadata needed for connector-line drawing.
  */
+fun nestReplies(rootId: String, flat: List<Post>): List<Post> {
+    if (flat.isEmpty()) return flat
+    val byParent = flat.groupBy { reply ->
+        reply.parentPostId?.takeIf { it.isNotBlank() } ?: rootId
+    }
+    fun children(parentId: String, seen: Set<String>): List<Post> {
+        return byParent[parentId].orEmpty()
+            .filter { it.id.isNotBlank() && it.id !in seen }
+            .map { child -> child.copy(replies = children(child.id, seen + child.id)) }
+    }
+    val nested = children(rootId, setOf(rootId)).toMutableList()
+    val placed = mutableSetOf<String>()
+    fun mark(posts: List<Post>) {
+        posts.forEach { post ->
+            placed += post.id
+            mark(post.replies)
+        }
+    }
+    mark(nested)
+    flat.filter { it.id.isNotBlank() && it.id != rootId && it.id !in placed }.forEach { orphan ->
+        val placedOrphan = orphan.copy(replies = children(orphan.id, setOf(orphan.id)))
+        nested += placedOrphan
+        mark(listOf(placedOrphan))
+    }
+    return nested
+}
+
 fun flattenThread(
     root: Post,
     maxDepth: Int = 5

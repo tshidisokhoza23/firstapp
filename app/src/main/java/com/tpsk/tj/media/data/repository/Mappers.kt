@@ -120,10 +120,7 @@ fun mapApiPost(apiPost: ApiPost, itemType: String? = null): Post {
         },
         location = apiPost.location,
         tags = apiPost.tags ?: emptyList(),
-        isContest = apiPost.is_contest || (apiPost.tags?.any { tag ->
-            val clean = tag.removePrefix("#").lowercase()
-            clean.contains("pageant") || clean.contains("contest") || clean.startsWith("miss")
-        } == true),
+        isContest = apiPost.is_contest,
         ad = apiPost.ad?.let { mapApiAdvert(it) },
         originalPost = apiPost.original_post?.let { mapApiPost(it) },
         thumbnailUrl = MediaUtils.formatUrl(apiPost.thumbnail_url)

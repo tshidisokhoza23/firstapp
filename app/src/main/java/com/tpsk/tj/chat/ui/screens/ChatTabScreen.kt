@@ -119,6 +119,7 @@ fun ChatsListScreen(
         }
     }
     val chatsState by chatViewModel.chats.collectAsState()
+    val chatUiState by chatViewModel.uiState.collectAsState()
     val context = LocalContext.current
     
     // FIX: Optimized scroll behavior for vendor ROMs
@@ -320,30 +321,33 @@ fun ChatsListScreen(
                         // Call Logs Floating Button
                         SmallFloatingActionButton(
                             onClick = { navController.navigate(Screen.DirectMessages.route) },
+                            modifier = Modifier.size(44.dp),
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.Call, contentDescription = "Call Logs")
+                            Icon(Icons.Default.Call, contentDescription = "Call Logs", modifier = Modifier.size(20.dp))
                         }
 
                         // Contacts Floating Button
                         FloatingActionButton(
                             onClick = { navController.navigate(Screen.ContactPicker.route) },
+                            modifier = Modifier.size(56.dp),
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Icon(Icons.Default.Contacts, contentDescription = "Contacts")
+                            Icon(Icons.Default.Contacts, contentDescription = "Contacts", modifier = Modifier.size(24.dp))
                         }
                     }
                     1 -> FloatingActionButton(
                         onClick = { navController.navigate(Screen.CreateChannel.route) },
+                        modifier = Modifier.size(56.dp),
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Create Channel")
+                        Icon(Icons.Default.Add, contentDescription = "Create Channel", modifier = Modifier.size(24.dp))
                     }
                 }
             }
@@ -421,7 +425,7 @@ fun ChatsListScreen(
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                             )
                             ListItem(
-                                headlineContent = { Text("Mingle Activity", color = MaterialTheme.colorScheme.onSurface) },
+                                headlineContent = { Text("Friends Activity", color = MaterialTheme.colorScheme.onSurface) },
                                 leadingContent = { Icon(Icons.Default.Favorite, null, tint = Color(0xFFE91E63)) },
                                 trailingContent = {
                                     Box(
@@ -580,10 +584,15 @@ fun ChatsListScreen(
                                     onContactClick = { contact -> navController.navigate(Screen.Chat.createRoute(contact.id, type = "initiate")) }
                                 )
                             } else {
+                                val chatsReady = chatsState is Resource.Success &&
+                                    (sanitizedChats.isNotEmpty() || chatUiState.chatsReady)
                                 when {
-                                    chatsState is Resource.Loading && sanitizedChats.isEmpty() -> {
-                                        LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                            items(10) { ChatItemShimmer() }
+                                    !chatsReady && sanitizedChats.isEmpty() -> {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            AppLogo(size = 88.dp)
                                         }
                                     }
                                     chatsState is Resource.Error && sanitizedChats.isEmpty() -> {
@@ -780,27 +789,22 @@ fun ChatList(
     var selectedChatForMenu by remember { mutableStateOf<ChatMessage?>(null) }
     val lazyListState = rememberLazyListState()
     val density = LocalDensity.current
+    val currentUser = com.tpsk.tj.LocalCurrentUser.current
     
-    val uiState by chatViewModel.uiState.collectAsState()
     val contactsState by chatViewModel.contacts.collectAsState()
 
     val loadedContacts = remember(contactsState) {
         (contactsState.data ?: emptyList()).filter { it.isRegistered || it.displayName.isNotBlank() }
     }
 
-    val defaultRegisteredContacts = remember {
-        listOf(
-            Contact(id = "c_alice", displayName = "Alice Smith", username = "alice", isRegistered = true),
-            Contact(id = "c_bob", displayName = "Bob Jones", username = "bob", isRegistered = true),
-            Contact(id = "c_charlie", displayName = "Charlie Davis", username = "charlie", isRegistered = true),
-            Contact(id = "c_diana", displayName = "Diana Prince", username = "diana", isRegistered = true),
-            Contact(id = "c_ethan", displayName = "Ethan Hunt", username = "ethan", isRegistered = true)
-        )
-    }
-
-    val registeredContacts = remember(loadedContacts) {
-        val registered = loadedContacts.filter { it.isRegistered }
-        if (registered.isNotEmpty()) registered else defaultRegisteredContacts
+    val registeredContacts = remember(loadedContacts, currentUser) {
+        val myId = currentUser?.id.orEmpty()
+        val myPhoneDigits = currentUser?.phoneNumber?.filter { it.isDigit() }.orEmpty().let { if (it.length >= 9) it.takeLast(9) else it }
+        loadedContacts.filter { contact ->
+            contact.isRegistered &&
+            !(myId.isNotBlank() && (contact.id == myId || contact.id == "user_$myId" || contact.id.removePrefix("user_") == myId.removePrefix("user_"))) &&
+            !(myPhoneDigits.isNotBlank() && contact.phoneNumber.filter { it.isDigit() }.let { if (it.length >= 9) it.takeLast(9) else it } == myPhoneDigits)
+        }
     }
 
     var isContactsExpanded by remember { mutableStateOf(true) }
@@ -832,14 +836,10 @@ fun ChatList(
         }
     }
 
-    androidx.compose.material3.pulltorefresh.PullToRefreshBox(
-        isRefreshing = uiState.isChatsFetching,
-        onRefresh = { chatViewModel.fetchChats() }
-    ) {
         LazyColumn(
             state = lazyListState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = bottomPadding + 16.dp)
+            contentPadding = PaddingValues(bottom = bottomPadding + 132.dp)
         ) {
         if (showStories) {
             item(key = "stories_row_item", contentType = "stories_row") {
@@ -854,7 +854,14 @@ fun ChatList(
             }
         }
 
-        if (chats.size == 0 && archivedChatsCount == 0) {
+        val activeChatUserIds = chats.mapNotNull { it.otherUserId ?: it.id }.toSet()
+        val registeredContactsNotInChats = registeredContacts.filter { contact ->
+            contact.id !in activeChatUserIds &&
+            "user_${contact.id}" !in activeChatUserIds &&
+            contact.id.removePrefix("user_") !in activeChatUserIds
+        }
+
+        if (chats.isEmpty() && archivedChatsCount == 0 && registeredContactsNotInChats.isEmpty()) {
             item(key = "empty_chats_item") {
                 Box(
                     modifier = Modifier
@@ -875,15 +882,6 @@ fun ChatList(
                             color = Color.Gray,
                             fontSize = 16.sp
                         )
-                        Spacer(Modifier.height(24.dp))
-                        Button(
-                            onClick = { chatViewModel.fetchChats() },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Refresh")
-                        }
                         TextButton(
                             onClick = { navController.navigate(Screen.ContactPicker.route) },
                             modifier = Modifier.padding(top = 8.dp)
@@ -935,44 +933,35 @@ fun ChatList(
             )
         }
 
-        // Collapsible Caret Header for Registered Contacts
-        item(key = "contacts_caret_header") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isContactsExpanded = !isContactsExpanded }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isContactsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Toggle Registered Contacts",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp)
+        if (registeredContactsNotInChats.isNotEmpty()) {
+            item(key = "registered_contacts_header") {
+                Text(
+                    text = "People on FirstApp",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = Color.Gray,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
 
-        if (isContactsExpanded) {
-            items(
-                items = registeredContacts,
-                key = { "registered_contact_" + it.id }
-            ) { contact ->
-                RegisteredContactRow(
-                    contact = contact,
-                    onClick = {
-                        navController.navigate(
-                            Screen.Chat.createRoute(
-                                chatId = contact.id,
-                                type = "direct",
-                                displayName = contact.displayName
-                            )
+        items(
+            items = registeredContactsNotInChats,
+            key = { "registered_contact_" + it.id }
+        ) { contact ->
+            RegisteredContactRow(
+                contact = contact,
+                onClick = {
+                    navController.navigate(
+                        Screen.Chat.createRoute(
+                            chatId = contact.id,
+                            type = "direct",
+                            displayName = contact.displayName
                         )
-                    }
-                )
-            }
+                    )
+                }
+            )
         }
-    }
     }
 
     if (selectedChatForMenu != null) {
@@ -1290,31 +1279,14 @@ fun RegisteredContactRow(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (!contact.avatarUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = contact.avatarUrl,
-                contentDescription = contact.displayName,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(bg),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = contact.displayName.take(1).uppercase(),
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
+        ChatAvatar(
+            imageUrl = contact.avatarUrl,
+            name = contact.displayName,
+            size = 48.dp,
+            fontSize = 20.sp,
+            backgroundColor = bg,
+            textColor = Color.White
+        )
 
         Spacer(modifier = Modifier.width(16.dp))
 

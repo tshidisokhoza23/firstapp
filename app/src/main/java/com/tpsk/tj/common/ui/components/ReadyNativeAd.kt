@@ -6,6 +6,7 @@ import android.widget.FrameLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,39 +49,50 @@ fun ReadyNativeAd(
     modifier: Modifier = Modifier,
     layoutResId: Int = R.layout.item_media_native_ad,
     playMedia: Boolean = false,
-    cornerRadius: Int = 12
+    cornerRadius: Int = 12,
+    fillParent: Boolean = true
 ) {
     val nativeAd = adObject as? NativeAd ?: return
 
     Box(modifier) {
         AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(cornerRadius.dp)),
+            modifier = if (fillParent) {
+                Modifier.fillMaxSize().clip(RoundedCornerShape(cornerRadius.dp))
+            } else {
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(cornerRadius.dp))
+            },
             factory = { context ->
                 val container = FrameLayout(context)
-                val adView = LayoutInflater.from(context).inflate(layoutResId, container, false) as NativeAdView
-                adView.layoutParams = FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                (adView.parent as? ViewGroup)?.removeView(adView)
-                prepareNativeAdView(adView, fillParent = true)
-                bindNativeAd(adView, nativeAd)
-                adView.tag = nativeAd
-                container.addView(adView)
+                try {
+                    val inflated = LayoutInflater.from(context).inflate(layoutResId, container, false)
+                    (inflated as? NativeAdView)?.let { adView ->
+                        adView.layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            if (fillParent) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        (adView.parent as? ViewGroup)?.removeView(adView)
+                        prepareNativeAdView(adView, fillParent = fillParent)
+                        bindNativeAd(adView, nativeAd)
+                        container.addView(adView)
+                    }
+                } catch (e: RuntimeException) {
+                    android.util.Log.w("ReadyNativeAd", "Native ad view skipped", e)
+                }
                 container
             },
             update = { container ->
                 val adView = container.getChildAt(0) as? NativeAdView ?: return@AndroidView
-                if (adView.tag != nativeAd) {
-                    (adView.parent as? ViewGroup)?.removeView(adView)
-                    bindNativeAd(adView, nativeAd)
-                    adView.tag = nativeAd
-                }
-                if (playbackState[adView] != playMedia) {
-                    playbackState[adView] = playMedia
-                    applyPlayback(adView, playMedia)
+                try {
+                    if (adView.tag != nativeAd) {
+                        bindNativeAd(adView, nativeAd)
+                    }
+                    if (playbackState[adView] != playMedia) {
+                        playbackState[adView] = playMedia
+                        applyPlayback(adView, playMedia)
+                    }
+                } catch (e: RuntimeException) {
+                    android.util.Log.w("ReadyNativeAd", "Native ad update skipped", e)
+                    adView.visibility = android.view.View.GONE
                 }
             }
         )
@@ -122,9 +134,9 @@ fun awaitPooledNativeAd(
             ad = cached
             return@LaunchedEffect
         }
-        com.tpsk.tj.common.data.ads.NativeAdPool.warm(adManager, context, unitId, portrait)
-        repeat(12) {
-            delay(200)
+        com.tpsk.tj.common.data.ads.NativeAdPool.warm(adManager, context, unitId, portrait, target = 3)
+        repeat(8) {
+            delay(300)
             val next = com.tpsk.tj.common.data.ads.NativeAdPool.take(adManager, context, unitId, portrait)
             if (next != null) {
                 SlotAdRegistry.put(slotKey, next)

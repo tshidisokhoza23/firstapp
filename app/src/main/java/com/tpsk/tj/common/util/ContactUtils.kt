@@ -87,6 +87,33 @@ object ContactUtils {
         return phoneNumbers.toList()
     }
 
+    fun getContactPhotoUri(context: Context, phoneNumber: String): String? {
+        if (phoneNumber.isBlank()) return null
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.READ_CONTACTS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+        return try {
+            val uri = android.net.Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                android.net.Uri.encode(phoneNumber)
+            )
+            context.contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup.PHOTO_URI),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (!cursor.moveToFirst()) return null
+                cursor.getString(cursor.getColumnIndexOrThrow(ContactsContract.PhoneLookup.PHOTO_URI))
+                    ?.takeIf { it.isNotBlank() }
+            }
+        } catch (e: Exception) {
+            Log.e("ContactUtils", "Failed to read contact photo", e)
+            null
+        }
+    }
+
     fun getContactNameByNumber(context: Context, phoneNumber: String): String? {
         val contentResolver = context.contentResolver
         val uri = android.net.Uri.withAppendedPath(

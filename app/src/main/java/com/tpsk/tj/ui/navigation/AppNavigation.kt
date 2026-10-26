@@ -125,10 +125,23 @@ fun AppNavigation(
                 runCatching { navController.getBackStackEntry("app_root") }.getOrNull() 
             }
             val chatVm: ChatViewModel = if (parentEntry != null) androidx.hilt.navigation.compose.hiltViewModel(parentEntry) else androidx.hilt.navigation.compose.hiltViewModel()
-            com.tpsk.tj.drive.ui.screens.DriveTabScreen(
+            com.tpsk.tj.ride.ui.screens.RideTabScreen(
                 navController = navController,
                 bottomPadding = 0.dp,
                 chatViewModel = chatVm
+            )
+        }
+
+        composable(Screen.Drive.route) {
+            val parentEntry = remember(navController) {
+                runCatching { navController.getBackStackEntry("app_root") }.getOrNull()
+            }
+            val chatVm: ChatViewModel = if (parentEntry != null) androidx.hilt.navigation.compose.hiltViewModel(parentEntry) else androidx.hilt.navigation.compose.hiltViewModel()
+            com.tpsk.tj.drive.ui.screens.DriveTabScreen(
+                navController = navController,
+                bottomPadding = 0.dp,
+                chatViewModel = chatVm,
+                role = "driver"
             )
         }
 

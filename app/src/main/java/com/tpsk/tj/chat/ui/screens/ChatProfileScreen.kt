@@ -412,7 +412,7 @@ fun ChatProfileScreen(
                     Text("Secret Chat info", color = AppAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "🔒 Secret Mingle Chat - Profile and Mingle bio are kept private.",
+                        text = "🔒 Secret Friends Chat - Profile and bio are kept private.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         modifier = Modifier.padding(bottom = 8.dp)

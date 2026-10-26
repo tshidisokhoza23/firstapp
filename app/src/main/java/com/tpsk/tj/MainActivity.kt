@@ -22,6 +22,7 @@ import com.tpsk.tj.ui.navigation.AppNavigation
 import com.tpsk.tj.ui.navigation.Screen
 import com.tpsk.tj.common.ui.theme.*
 
+import com.tpsk.tj.home.ui.components.AppLogo
 import com.tpsk.tj.home.ui.viewmodel.MainViewModel
 import com.tpsk.tj.music.ui.viewmodel.MusicViewModel
 import com.tpsk.tj.chat.data.*
@@ -439,7 +440,7 @@ class MainActivity : FragmentActivity() {
                         val hasToken = remember(isLoggedIn) { sessionManager.getToken() != null }
                         if (isLoggedIn && currentUser == null && !hasToken) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = Color(0xFF2196F3))
+                                AppLogo(size = 88.dp)
                             }
                         } else if (isLoggedIn && currentUser == null) {
                             // If we have a token but no user yet, show loading but allow a "Try Offline" button after a few seconds
@@ -451,6 +452,8 @@ class MainActivity : FragmentActivity() {
                             
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    AppLogo(size = 88.dp)
+                                    Spacer(Modifier.height(24.dp))
                                     CircularProgressIndicator(color = Color(0xFF2196F3))
                                     if (showOfflineButton) {
                                         Spacer(Modifier.height(24.dp))
@@ -583,6 +586,8 @@ class MainActivity : FragmentActivity() {
 
     private fun routeNotificationIntent(source: Intent?): String? {
         if (source == null) return null
+        if (source.getBooleanExtra("open_drive", false)) return Screen.Drive.route
+        if (source.getBooleanExtra("open_ride", false)) return Screen.Ride.route
         val postId = source.getStringExtra("open_post_id")
         if (!postId.isNullOrBlank()) return Screen.PostDetail.createRoute(postId)
         val storyUserId = source.getStringExtra("open_user_id")

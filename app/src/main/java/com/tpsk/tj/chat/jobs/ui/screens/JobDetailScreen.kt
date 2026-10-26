@@ -29,11 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.tpsk.tj.chat.jobs.model.Job
-import com.tpsk.tj.chat.nearby.model.NearbyReply
 import com.tpsk.tj.common.ui.theme.TwitterBlue
 import com.tpsk.tj.common.util.formatTwitterTime
 import com.tpsk.tj.media.ui.components.HashtagText
-import com.tpsk.tj.media.ui.components.ThreadComposerBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,6 +39,7 @@ fun JobDetailScreen(
     job: Job,
     onBack: () -> Unit,
     onApply: () -> Unit,
+    onSave: () -> Unit = {},
     onExternalApplyClick: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     onReportJob: (String, String) -> Unit = { _, _ -> }
@@ -51,21 +50,7 @@ fun JobDetailScreen(
 
     var isLiked by remember(job.id) { mutableStateOf(false) }
     var likeCount by remember(job.id) { mutableIntStateOf(0) }
-    var isSaved by remember(job.id) { mutableStateOf(job.isSaved) }
-
-    val publicReplies = remember(job.id) {
-        mutableStateListOf(
-            NearbyReply(
-                id = "reply_j1",
-                postId = job.id,
-                userId = "u_thabo",
-                authorName = "Thabo K.",
-                authorAvatarColor = Color(0xFFAB47BC),
-                content = "Are remote applicants from other provinces accepted for this position?",
-                createdAt = System.currentTimeMillis() - (15 * 60 * 1000L)
-            )
-        )
-    }
+    var isSaved by remember(job.id, job.isSaved) { mutableStateOf(job.isSaved) }
 
     val isAppliedInternal = job.isApplied || job.hasAppliedInternal
     val handle = remember(job.companyName) {
@@ -121,25 +106,7 @@ fun JobDetailScreen(
                 )
             )
         },
-        bottomBar = {
-            ThreadComposerBar(
-                onSend = { text ->
-                    val newReply = NearbyReply(
-                        id = "reply_job_" + System.currentTimeMillis(),
-                        postId = job.id,
-                        userId = "user_you",
-                        authorName = "You",
-                        content = text,
-                        createdAt = System.currentTimeMillis()
-                    )
-                    publicReplies.add(newReply)
-                },
-                replyToName = job.companyName,
-                modifier = Modifier
-                    .windowInsetsPadding(WindowInsets.ime)
-                    .navigationBarsPadding()
-            )
-        },
+        bottomBar = {},
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
@@ -348,7 +315,11 @@ fun JobDetailScreen(
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
-                            text = if (isAppliedInternal) "Applied" else "Apply Now",
+                            text = when {
+                            isAppliedInternal -> "Applied"
+                            job.isExternal -> "Apply on site"
+                            else -> "Apply Now"
+                        },
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp
                         )
@@ -394,13 +365,13 @@ fun JobDetailScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.ChatBubbleOutline,
-                        contentDescription = "Reply",
+                        contentDescription = "Applicants",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Reply ${publicReplies.size}",
+                        text = "Apply",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -484,7 +455,10 @@ fun JobDetailScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable { isSaved = !isSaved }
+                        .clickable {
+                            isSaved = !isSaved
+                            onSave()
+                        }
                         .padding(6.dp)
                 ) {
                     Icon(
@@ -537,78 +511,6 @@ fun JobDetailScreen(
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
             )
-
-            Text(
-                text = "Replies (${publicReplies.size})",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            if (publicReplies.isEmpty()) {
-                Text(
-                    text = "No replies yet. Be the first to reply or ask a question!",
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            } else {
-                publicReplies.forEach { reply ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        Row(modifier = Modifier.padding(12.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF2196F3)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = reply.authorName.take(1).uppercase(),
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(
-                                        text = reply.authorName,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    Text(
-                                        text = formatTwitterTime(reply.createdAt.toString()),
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = reply.content,
-                                    fontSize = 13.sp,
-                                    lineHeight = 18.sp,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-                }
-            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }

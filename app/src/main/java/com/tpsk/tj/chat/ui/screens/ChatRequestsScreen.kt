@@ -14,6 +14,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,15 +31,19 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.tpsk.tj.chat.nearby.model.NearbyChatRequest
 import com.tpsk.tj.chat.nearby.ui.viewmodel.NearbyViewModel
+import com.tpsk.tj.chat.ui.viewmodel.ChatViewModel
+import com.tpsk.tj.common.util.Resource
 import com.tpsk.tj.ui.navigation.Screen
 
 @Composable
 fun ChatRequestsScreen(
     navController: NavController,
     onBack: () -> Unit,
-    nearbyViewModel: NearbyViewModel = hiltViewModel()
+    nearbyViewModel: NearbyViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val chatRequests by nearbyViewModel.chatRequests.collectAsState()
     val uiState by nearbyViewModel.uiState.collectAsState()
     var respondingId by remember { mutableStateOf<String?>(null) }
@@ -127,13 +133,24 @@ fun ChatRequestsScreen(
                                         return@respondChatRequest
                                     }
                                     Toast.makeText(context, "Request accepted", Toast.LENGTH_SHORT).show()
-                                    navController.navigate(
-                                        Screen.Chat.createRoute(
-                                            chatId = target,
-                                            type = "initiate",
-                                            displayName = req.senderName
-                                        )
-                                    )
+                                    scope.launch {
+                                        chatViewModel.initiateDM(target).collect { res ->
+                                            when (res) {
+                                                is Resource.Success -> {
+                                                    val chatId = res.data?.takeIf { it.isNotBlank() } ?: return@collect
+                                                    navController.navigate(
+                                                        Screen.Chat.createRoute(
+                                                            chatId = chatId,
+                                                            type = "direct",
+                                                            displayName = req.senderName
+                                                        )
+                                                    ) { launchSingleTop = true }
+                                                }
+                                                is Resource.Error -> Toast.makeText(context, res.message ?: "Could not open the chat", Toast.LENGTH_LONG).show()
+                                                else -> Unit
+                                            }
+                                        }
+                                    }
                                 },
                                 onError = { err ->
                                     respondingId = null

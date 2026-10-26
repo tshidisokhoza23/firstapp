@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -29,7 +30,7 @@ import com.tpsk.tj.chat.ui.screens.ChatsListScreen
 import com.tpsk.tj.media.ui.screens.MediaTabScreen
 import com.tpsk.tj.media.ui.screens.shorts.ShortsTabScreen
 import com.tpsk.tj.music.ui.screens.MusicTabScreen
-import com.tpsk.tj.drive.ui.screens.DriveTabScreen
+import com.tpsk.tj.ride.ui.screens.RideTabScreen
 
 import com.tpsk.tj.chat.ui.viewmodel.ChatViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -58,8 +59,11 @@ fun MainScreen(
         if (entry != null) hiltViewModel(entry) else hiltViewModel()
     }
 
+    val areaPresenceViewModel: com.tpsk.tj.drive.ui.viewmodel.AreaPresenceViewModel = hiltViewModel()
+    val appContext = LocalContext.current
     LaunchedEffect(Unit) {
         userViewModel.fetchCurrentUser()
+        areaPresenceViewModel.start(appContext)
         com.tpsk.tj.common.util.GlobalNavigation.isBottomBarVisible.value = true
     }
     
@@ -197,7 +201,7 @@ fun MainScreen(
                                 navController = navController,
                                 bottomPadding = innerPadding.calculateBottomPadding()
                             )
-                            BottomNavItem.Ride -> DriveTabScreen(
+                            BottomNavItem.Ride -> RideTabScreen(
                                 navController = navController,
                                 bottomPadding = innerPadding.calculateBottomPadding(),
                                 chatViewModel = chatViewModel

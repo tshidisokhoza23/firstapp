@@ -192,7 +192,7 @@ fun MingleScreen(
                             IconButton(onClick = { navController.navigate(Screen.MingleChats.route) }) {
                                 Icon(
                                     imageVector = Icons.Default.Email,
-                                    contentDescription = "Mingle Secret Chats",
+                                    contentDescription = "Friends Secret Chats",
                                     tint = MaterialTheme.colorScheme.onBackground
                                 )
                             }
@@ -247,7 +247,7 @@ fun MingleScreen(
                             IconButton(onClick = { showUploadPhotosSheet = true }) {
                                 Icon(
                                     imageVector = Icons.Default.AddAPhoto,
-                                    contentDescription = "My Mingle Profile",
+                                    contentDescription = "My Friends Profile",
                                     tint = if (hasUploadedProfile) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                 )
                             }
@@ -302,7 +302,7 @@ fun MingleScreen(
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Text(
-                                text = "Upload photos to complete your Mingle profile to like candidates.",
+                                text = "Upload photos to complete your Friends profile to like candidates.",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
                             )
@@ -478,7 +478,7 @@ fun MingleScreen(
                                     introTarget = profile
                                 },
                                 onProfileClick = {
-                                    Toast.makeText(context, "🔒 Secret Mingle Profile - Profile details are kept private.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "🔒 Secret Friends Profile - Profile details are kept private.", Toast.LENGTH_SHORT).show()
                                 },
                                 onSuperLike = {
                                     if (!hasUploadedProfile) {

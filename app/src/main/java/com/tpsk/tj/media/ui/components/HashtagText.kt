@@ -16,15 +16,41 @@ import com.tpsk.tj.ui.navigation.Screen
 
 private val hashtagRegex = Regex("""#[A-Za-z0-9_]{2,40}""")
 
-fun isContestHashtag(tag: String): Boolean {
-    val clean = tag.removePrefix("#").lowercase().trim()
-    val knownContestTags = setOf(
-        "missthembisa", "thembisatalent", "thembisaqueen", "misssoweto", "gautengpageant"
-    )
-    return knownContestTags.contains(clean) ||
-           clean.startsWith("contest") ||
-           clean.contains("pageant") ||
-           clean.contains("contestant")
+object ActiveQuality {
+    @Volatile
+    var mode: String = "balanced"
+}
+
+object ContestTags {
+    private val tags = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun replace(values: Collection<String>) {
+        tags.clear()
+        addAll(values)
+    }
+
+    fun addAll(values: Collection<String>) {
+        values.forEach { add(it) }
+    }
+
+    fun add(raw: String) {
+        val clean = raw.removePrefix("#").lowercase().trim()
+        if (clean.isNotEmpty()) tags.add(clean)
+    }
+
+    fun isContest(raw: String): Boolean {
+        val clean = raw.removePrefix("#").lowercase().trim()
+        return clean.isNotEmpty() && tags.contains(clean)
+    }
+}
+
+fun hashtagRoute(tag: String): String {
+    val clean = tag.removePrefix("#").trim()
+    return if (ContestTags.isContest(clean)) {
+        Screen.ContestFeed.createRoute(clean)
+    } else {
+        Screen.HashtagFeed.createRoute(clean)
+    }
 }
 
 @Composable
@@ -63,7 +89,7 @@ fun HashtagText(
                 if (onHashtagClick != null) {
                     onHashtagClick(tag)
                 } else {
-                    GlobalNavigation.navigateTo(Screen.Main.createRoute(tab = "social", subTab = "#$tag"))
+                    GlobalNavigation.navigateTo(hashtagRoute(tag))
                 }
             }
         }

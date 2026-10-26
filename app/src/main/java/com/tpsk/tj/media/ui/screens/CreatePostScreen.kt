@@ -55,6 +55,7 @@ import android.widget.Toast
 @Composable
 fun CreatePostScreen(
     replyToPost: Post? = null,
+    replyTargetId: String? = null,
     quotingPost: Post? = null,
     onDismiss: () -> Unit,
     onPostCreated: () -> Unit,
@@ -261,9 +262,10 @@ fun CreatePostScreen(
                                 },
                                 pollOptions = finalPoll,
                                 location = null,
-                                parentPostId = replyToPost?.id,
-                                rootPostId = replyToPost?.rootPostId ?: replyToPost?.id,
+                                parentPostId = replyToPost?.id ?: replyTargetId,
+                                rootPostId = replyToPost?.rootPostId ?: replyToPost?.id ?: replyTargetId,
                                 repostOfId = quotingPost?.id,
+                                contestEntry = isContestSelected,
                                 compose = com.tpsk.tj.common.data.api.ComposeMetaDto(
                                     content = content,
                                     mood = selectedMood,
@@ -299,12 +301,20 @@ fun CreatePostScreen(
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Share",
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 14.sp
-                            )
+                            if (isPostingState) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = "Share",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    fontSize = 14.sp
+                                )
+                            }
                         }
                     }
                 }

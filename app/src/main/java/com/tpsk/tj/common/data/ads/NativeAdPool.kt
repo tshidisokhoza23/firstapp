@@ -11,6 +11,7 @@ object NativeAdPool {
     private const val TARGET = 3
     private val ready = HashMap<String, ArrayDeque<Any>>()
     private val inflight = HashMap<String, Int>()
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     fun warm(
         adManager: AdManager,
@@ -19,19 +20,29 @@ object NativeAdPool {
         portrait: Boolean,
         target: Int = TARGET
     ) {
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            mainHandler.post { warm(adManager, context, unitId, portrait, target) }
+            return
+        }
         val app = context.applicationContext
         val slot = key(unitId, portrait)
-        val need = synchronized(this) {
+        val capped = target.coerceIn(1, 3)
+        val toLoad = synchronized(this) {
             val have = (ready[slot]?.size ?: 0) + (inflight[slot] ?: 0)
-            val missing = (target - have).coerceAtLeast(0)
+            val missing = (capped - have).coerceAtLeast(0)
             if (missing > 0) inflight[slot] = (inflight[slot] ?: 0) + missing
             missing
         }
-        repeat(need) {
+        repeat(toLoad) {
             val onLoaded: (Any) -> Unit = { ad -> store(slot, ad) }
             val onFailed: (String) -> Unit = { releaseInflight(slot) }
-            if (portrait) adManager.loadShortsNativeAd(app, unitId, onLoaded, onFailed)
-            else adManager.loadNativeAd(app, unitId, onLoaded, onFailed)
+            try {
+                if (portrait) adManager.loadShortsNativeAd(app, unitId, onLoaded, onFailed)
+                else adManager.loadNativeAd(app, unitId, onLoaded, onFailed)
+            } catch (e: RuntimeException) {
+                releaseInflight(slot)
+                android.util.Log.w("NativeAdPool", "Native ad load skipped", e)
+            }
         }
     }
 

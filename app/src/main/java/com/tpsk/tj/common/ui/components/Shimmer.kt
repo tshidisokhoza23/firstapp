@@ -63,10 +63,10 @@ fun ChatItemShimmer() {
     ) {
         ShimmerEffect(
             modifier = Modifier
-                .size(52.dp)
+                .size(48.dp)
                 .clip(CircleShape)
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             ShimmerEffect(
                 modifier = Modifier

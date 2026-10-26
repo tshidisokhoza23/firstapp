@@ -31,7 +31,8 @@ class MediaViewModel @Inject constructor(
     private val accountRepository: AccountRepository,
     private val adManager: com.tpsk.tj.common.data.ads.AdManager,
     private val postWebSocketClient: PostWebSocketClient,
-    private val studioApi: com.tpsk.tj.common.data.api.StudioApi
+    private val studioApi: com.tpsk.tj.common.data.api.StudioApi,
+    private val contestRepository: com.tpsk.tj.media.data.repository.ContestRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MediaUiState())
@@ -154,6 +155,11 @@ class MediaViewModel @Inject constructor(
     init {
         preloadAds()
         loadFeed("standard")
+        viewModelScope.launch {
+            contestRepository.list("", "new").onSuccess { rows ->
+                com.tpsk.tj.media.ui.components.ContestTags.replace(rows.map { it.hashtag })
+            }
+        }
         connectPostRealtime()
         fetchSuggestedUsers()
         fetchNotificationsCount()
@@ -176,8 +182,7 @@ class MediaViewModel @Inject constructor(
             // Warm a small pool. Screens take an ad on the first frame or skip the
             // slot. Do not block the feed on fill — that inserts a row later.
             _adsLoaded.value = true
-            NativeAdPool.warm(adManager, context, AdUnitConfig.NATIVE_POSTS_ID, portrait = false, target = 3)
-            NativeAdPool.warm(adManager, context, AdUnitConfig.NATIVE_SHORTS_ID, portrait = true, target = 3)
+            NativeAdPool.warm(adManager, context, AdUnitConfig.NATIVE_SHORTS_ID, portrait = true, target = 2)
         }
     }
 
@@ -186,6 +191,7 @@ class MediaViewModel @Inject constructor(
     fun loadFeed(type: String, categoryId: String? = null, forceReload: Boolean = false, qualityMode: String? = null) {
         val currentCategory = _uiState.value.selectedCategoryId
         val quality = qualityMode ?: _uiState.value.qualityMode
+        com.tpsk.tj.media.ui.components.ActiveQuality.mode = quality
         if (!forceReload && currentFeedType == type && currentCategory == categoryId && _uiState.value.qualityMode == quality && qualityMode == null) return
         currentFeedType = type
 
@@ -233,6 +239,14 @@ class MediaViewModel @Inject constructor(
 
     fun getSavedPostsPaging(): Flow<PagingData<Post>> {
         return socialRepository.getPostsPaging(following = false, authorId = "", feedType = "standard", categoryId = "saved").cachedIn(viewModelScope)
+    }
+
+    fun loadReputation(userId: String, onResult: (Int) -> Unit) {
+        val id = userId.ifBlank { "me" }
+        viewModelScope.launch {
+            val score = runCatching { studioApi.reputation(id).body()?.score }.getOrNull() ?: 50
+            onResult(score.coerceIn(0, 100))
+        }
     }
 
     fun fetchTrendingTopics() {
@@ -425,6 +439,7 @@ class MediaViewModel @Inject constructor(
         rootPostId: String? = null,
         repostOfId: String? = null,
         compose: com.tpsk.tj.common.data.api.ComposeMetaDto? = null,
+        contestEntry: Boolean = false,
         onComplete: ((Boolean) -> Unit)? = null
     ) {
         if (content.isBlank() && mediaUris.isEmpty() && (pollOptions == null || pollOptions.isEmpty()) && repostOfId == null) {
@@ -525,7 +540,7 @@ class MediaViewModel @Inject constructor(
                 return@launch
             }
 
-            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId, repostOfId = repostOfId, thumbnailUrl = thumbnailUrl, compose = compose).collect { res ->
+            socialRepository.createPost(content.trim(), finalUrls, postType, tags, channelId, pollOptions, location, finalMediaType, parentPostId, rootPostId, repostOfId = repostOfId, thumbnailUrl = thumbnailUrl, compose = compose, contestEntry = contestEntry).collect { res ->
                 if (res is Resource.Success) {
                     posted = true
                     _toastMessage.value = if (parentPostId != null) "Reply posted" else "Post created successfully"
@@ -533,20 +548,20 @@ class MediaViewModel @Inject constructor(
 
                     // ONLY reload main feed if creating a top-level post/short, NOT when commenting/replying!
                     if (postType != "reply" && parentPostId == null && rootPostId == null) {
-                        loadFeed(type = postType, forceReload = false)
+                        loadFeed(type = postType, forceReload = true)
                     }
 
                     // REQUIREMENT: Refresh thread/replies immediately after replying
                     if (parentPostId != null || rootPostId != null) {
-                        val countTarget = rootPostId ?: parentPostId
-                        if (countTarget != null) {
+                        val countTargets = listOfNotNull(parentPostId, rootPostId).distinct()
+                        countTargets.forEach { countTarget ->
                             socialRepository.incrementPostRepliesLocally(countTarget)
-                            val selected = _uiState.value.selectedPost
-                            if (selected != null && selected.id == countTarget) {
-                                _uiState.update { it.copy(selectedPost = selected.copy(repliesCount = selected.repliesCount + 1)) }
-                            }
-                            fetchShortReplies(countTarget)
                         }
+                        val selected = _uiState.value.selectedPost
+                        if (selected != null && selected.id in countTargets) {
+                            _uiState.update { it.copy(selectedPost = selected.copy(repliesCount = selected.repliesCount + 1)) }
+                        }
+                        countTargets.forEach { fetchShortReplies(it) }
                         val currentSelectedId = _uiState.value.selectedPost?.id
                         if (currentSelectedId != null) {
                             fetchReplies(currentSelectedId)
@@ -864,7 +879,7 @@ class MediaViewModel @Inject constructor(
                     _uiState.update { state ->
                         val current = state.selectedPost
                         if (current != null && current.id == postId) {
-                            state.copy(selectedPost = current.copy(replies = resource.data ?: emptyList()))
+                            state.copy(selectedPost = current.copy(replies = nestReplies(postId, resource.data ?: emptyList())))
                         } else state
                     }
                 }

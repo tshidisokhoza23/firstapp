@@ -44,6 +44,7 @@ fun JobsHomeScreen(
     var selectedFilter by remember { mutableStateOf("All") }
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var showMenu by remember { mutableStateOf(false) }
 
     val filters = listOf(
         "All", "General", "IT", "Finance", "Sales", "Healthcare", "Education",
@@ -120,12 +121,37 @@ fun JobsHomeScreen(
                     CenterAlignedTopAppBar(
                         title = { AppLogo(size = 36.dp) },
                         navigationIcon = {
-                            IconButton(onClick = {}) {
-                                Icon(
-                                    imageVector = Icons.Default.Menu,
-                                    contentDescription = "Menu",
-                                    tint = MaterialTheme.colorScheme.onSurface
-                                )
+                            Box {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Menu,
+                                        contentDescription = "Menu",
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text("My jobs") },
+                                        onClick = {
+                                            showMenu = false
+                                            navController.navigate(Screen.MyJobs.route)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Applications") },
+                                        onClick = {
+                                            showMenu = false
+                                            navController.navigate(Screen.Applications.route)
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Job profile") },
+                                        onClick = {
+                                            showMenu = false
+                                            navController.navigate(Screen.JobProfile.route)
+                                        }
+                                    )
+                                }
                             }
                         },
                         actions = {
@@ -187,15 +213,17 @@ fun JobsHomeScreen(
                             }
                         } else {
                             JobList(
-                                jobs = filterJobs(state.data ?: emptyList(), selectedFilter),
-                                onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) }
+                                jobs = state.data ?: emptyList(),
+                                onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
+                                onSaveClick = { viewModel.toggleSave(it) }
                             )
                         }
                     }
                     is Resource.Success -> {
                         JobList(
-                            jobs = filterJobs(state.data ?: emptyList(), selectedFilter),
-                            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) }
+                            jobs = state.data ?: emptyList(),
+                            onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
+                            onSaveClick = { viewModel.toggleSave(it) }
                         )
                     }
                 }
@@ -220,17 +248,13 @@ fun JobsHomeScreen(
     }
 }
 
-private fun filterJobs(jobs: List<Job>, filter: String): List<Job> {
-    if (filter == "All") return jobs
-    return jobs.filter { job ->
-        job.jobType.contains(filter, ignoreCase = true) ||
-        job.title.contains(filter, ignoreCase = true) ||
-        job.description.contains(filter, ignoreCase = true)
-    }
-}
-
 @Composable
-fun JobList(jobs: List<Job>, topBarHeight: Dp = 0.dp, onJobClick: (Job) -> Unit) {
+fun JobList(
+    jobs: List<Job>,
+    topBarHeight: Dp = 0.dp,
+    onJobClick: (Job) -> Unit,
+    onSaveClick: (Job) -> Unit = {}
+) {
     if (jobs.isEmpty()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
@@ -249,8 +273,76 @@ fun JobList(jobs: List<Job>, topBarHeight: Dp = 0.dp, onJobClick: (Job) -> Unit)
     }
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 160.dp)) {
         item { Spacer(modifier = Modifier.height(topBarHeight)) }
-        items(jobs, key = { it.id }) { job -> 
-            JobItem(job = job, onClick = { onJobClick(job) })
+        items(jobs, key = { it.id }) { job ->
+            JobItem(job = job, onClick = { onJobClick(job) }, onSaveClick = { onSaveClick(job) })
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyJobsScreen(
+    onBack: () -> Unit,
+    onJobClick: (String) -> Unit,
+    viewModel: JobViewModel = hiltViewModel()
+) {
+    val state by viewModel.myJobs.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) { viewModel.fetchMyJobs() }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("My jobs") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        when (val current = state) {
+            is Resource.Error -> {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(current.message ?: "Could not load your jobs")
+                    Button(onClick = { viewModel.fetchMyJobs() }) { Text("Retry") }
+                }
+            }
+            is Resource.Loading -> {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is Resource.Success -> {
+                val jobs = current.data.orEmpty()
+                if (jobs.isEmpty()) {
+                    Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                        Text("You have not posted a job yet")
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(jobs, key = { it.id }) { job ->
+                            Column(modifier = Modifier.fillMaxWidth().clickable { onJobClick(job.id) }) {
+                                Text(job.title, fontWeight = FontWeight.Bold)
+                                Text("${job.companyName} · ${job.listingStatus ?: "posted"}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    TextButton(onClick = { viewModel.closeJob(job.id) }) { Text("Close") }
+                                    TextButton(onClick = {
+                                        viewModel.renewJob(job.id) { url ->
+                                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                                        }
+                                    }) { Text("Renew") }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
