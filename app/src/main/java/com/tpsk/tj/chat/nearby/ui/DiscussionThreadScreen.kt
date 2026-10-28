@@ -387,87 +387,109 @@ fun DiscussionThreadScreen(
                 }
             }
 
-            // Pinned Original Post Banner (Matching mockup image_9.png)
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = DarkNavyHeader,
-                border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.35f)),
+            // Single Scrollable Discussion Thread List
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.PushPin,
-                            contentDescription = "Pinned",
-                            tint = AccentCyan,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                // Item 0: Pinned Original Post
+                item(key = "pinned_post_header") {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = DarkNavyHeader,
+                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.PushPin,
+                                    contentDescription = "Pinned",
+                                    tint = AccentCyan,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "PINNED POST",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentCyan,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Text(
+                                text = "${shownAuthor.ifBlank { "Author" }} • ${shownDistance.ifBlank { "Nearby" }} • ${authorTime.ifBlank { "now" }}",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color.White
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = shownContent.ifBlank { "Loading nearby post..." },
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                color = Color.White.copy(alpha = 0.95f)
+                            )
+                            val threadImages = uiState.activeThreadPost?.imageUrls?.takeIf { it.isNotEmpty() }
+                                ?: uiState.posts.find { it.id == postId }?.imageUrls.orEmpty()
+                            if (threadImages.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                NearbyPostImages(threadImages)
+                            }
+                        }
+                    }
+                }
+
+                // Item 1: Replies Header or Loading / Empty state
+                if (uiState.isLoading && repliesList.isEmpty()) {
+                    item(key = "loading_indicator") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = AccentCyan)
+                        }
+                    }
+                } else if (repliesList.isEmpty()) {
+                    item(key = "empty_replies") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Outlined.Chat, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(48.dp))
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text("Be the first to reply!", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("Ask a question or share your thoughts with people nearby.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                } else {
+                    item(key = "replies_count_header") {
                         Text(
-                            text = "PINNED POST",
-                            fontSize = 11.sp,
+                            text = "Replies (${repliesList.size})",
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = AccentCyan,
-                            letterSpacing = 0.5.sp
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = "${shownAuthor.ifBlank { "Author" }} • ${shownDistance.ifBlank { "Nearby" }} • ${authorTime.ifBlank { "now" }}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = shownContent.ifBlank { "Loading nearby post..." },
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        color = Color.White.copy(alpha = 0.95f)
-                    )
-                    val threadImages = uiState.activeThreadPost?.imageUrls?.takeIf { it.isNotEmpty() }
-                        ?: uiState.posts.find { it.id == postId }?.imageUrls.orEmpty()
-                    if (threadImages.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        NearbyPostImages(threadImages)
-                    }
-                }
-            }
-
-            // Discussion Replies List
-            if (uiState.isLoading && repliesList.isEmpty()) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = AccentCyan)
-                }
-            } else if (repliesList.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Outlined.Chat, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text("Be the first to reply!", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("Ask a question or share your thoughts with people nearby.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
                     items(repliesList, key = { it.id }) { reply ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
