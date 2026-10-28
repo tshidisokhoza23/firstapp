@@ -1272,6 +1272,16 @@ fun RegisteredContactRow(
     }
     val bg = avatarColors[colorIndex]
 
+    val subtitleText = remember(contact.bio, contact.username) {
+        val bio = contact.bio?.trim()
+        val username = contact.username.trim()
+        when {
+            !bio.isNullOrBlank() -> bio
+            username.isNotBlank() -> "@$username"
+            else -> "Hey there! I am using FirstApp"
+        }
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1288,15 +1298,26 @@ fun RegisteredContactRow(
             textColor = Color.White
         )
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
-        Text(
-            text = contact.displayName,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = contact.displayName,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitleText,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

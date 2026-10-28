@@ -709,21 +709,27 @@ class NearbyViewModel @Inject constructor(
 
     fun openThread(post: NearbyPost) {
         val stored = repository.findPost(post.id)
+        val initialReplies = post.replies.ifEmpty { stored?.replies.orEmpty() }
         val enriched = post.copy(
             imageUrls = post.imageUrls.ifEmpty { stored?.imageUrls.orEmpty() },
             authorAvatarUrl = post.authorAvatarUrl ?: stored?.authorAvatarUrl,
-            replies = emptyList()
+            replies = initialReplies
         )
         _uiState.value = _uiState.value.copy(
             activeThreadPost = enriched,
-            isLoading = true,
+            isLoading = initialReplies.isEmpty(),
             errorMessage = null
         )
         viewModelScope.launch {
             if (post.content.isBlank() || post.userId.isBlank()) {
                 val loaded = runCatching { repository.fetchPost(post.id) }.getOrNull()
                 if (loaded != null && _uiState.value.activeThreadPost?.id == post.id) {
-                    _uiState.value = _uiState.value.copy(activeThreadPost = loaded.copy(replies = emptyList()))
+                    val currentReplies = _uiState.value.activeThreadPost?.replies.orEmpty()
+                    _uiState.value = _uiState.value.copy(
+                        activeThreadPost = loaded.copy(
+                            replies = if (currentReplies.isNotEmpty()) currentReplies else loaded.replies
+                        )
+                    )
                 }
             }
             val current = _uiState.value.activeThreadPost
@@ -744,7 +750,7 @@ class NearbyViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             activeThreadPost = currentActive.copy(
-                                replyCount = replies.size,
+                                replyCount = maxOf(currentActive.replyCount, replies.size),
                                 replies = replies
                             )
                         )

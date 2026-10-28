@@ -178,18 +178,19 @@ fun MediaGrid(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 360.dp, max = 520.dp)
-                            .aspectRatio(3f / 4f)
+                            .heightIn(min = 220.dp, max = 520.dp)
                             .clip(shape)
-                            .background(Color.DarkGray.copy(alpha = 0.2f))
+                            .background(Color.Black.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
                             model = imageRequest,
                             contentDescription = null,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
+                                .heightIn(min = 220.dp, max = 520.dp)
                                 .clickable { onMediaClick(urlString) },
-                            contentScale = ContentScale.Crop,
+                            contentScale = ContentScale.Fit,
                             placeholder = placeholderPainter,
                             error = errorPainter
                         )

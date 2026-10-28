@@ -924,22 +924,50 @@ fun NearbyPostCard(
 @Composable
 fun NearbyPostImages(imageUrls: List<String>) {
     if (imageUrls.isEmpty()) return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        imageUrls.forEach { url ->
+    if (imageUrls.size == 1) {
+        val url = com.tpsk.tj.common.util.MediaUtils.formatUrl(imageUrls[0]) ?: imageUrls[0]
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 200.dp, max = 480.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color.Black.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
+        ) {
             AsyncImage(
                 model = url,
                 contentDescription = "Post photo",
                 modifier = Modifier
-                    .height(180.dp)
-                    .width(if (imageUrls.size == 1) 280.dp else 180.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
+                    .fillMaxWidth()
+                    .heightIn(min = 200.dp, max = 480.dp),
+                contentScale = ContentScale.Fit
             )
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            imageUrls.forEach { rawUrl ->
+                val url = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
+                Box(
+                    modifier = Modifier
+                        .height(260.dp)
+                        .width(220.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = url,
+                        contentDescription = "Post photo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
         }
     }
 }
