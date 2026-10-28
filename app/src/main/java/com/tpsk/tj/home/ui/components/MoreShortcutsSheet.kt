@@ -79,7 +79,7 @@ fun MoreShortcutsSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp)
+                        .padding(20.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -100,12 +100,12 @@ fun MoreShortcutsSheet(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(32.dp),
+                        columns = GridCells.Fixed(4),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(20.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         items(shortcuts) { item ->
@@ -149,7 +149,7 @@ fun ShortcutCell(item: ShortcutItem, onClick: () -> Unit) {
         ) {
             Box(
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(56.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(itemColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
@@ -158,15 +158,15 @@ fun ShortcutCell(item: ShortcutItem, onClick: () -> Unit) {
                     imageVector = item.icon,
                     contentDescription = item.label,
                     tint = itemColor,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = if (item.isEnabled) item.label else "${item.label} (Soon)",
             color = if (item.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
             maxLines = 1,
