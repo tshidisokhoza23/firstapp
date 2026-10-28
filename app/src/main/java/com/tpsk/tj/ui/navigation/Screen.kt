@@ -156,4 +156,7 @@ sealed class Screen(val route: String) {
     }
     object MyNearbyPosts : Screen("my_nearby_posts")
     object ChatRequests : Screen("chat_requests")
+    object Rent : Screen("rent")
+    object Services : Screen("services")
+    object Market : Screen("market")
 }

@@ -52,7 +52,10 @@ fun MoreShortcutsSheet(
         ShortcutItem("Vocab", Icons.AutoMirrored.Filled.MenuBook, Color(0xFF2196F3), Screen.Vocab.route, isEnabled = true),
         ShortcutItem("Stream", Icons.Default.MusicNote, Color(0xFF9C27B0), Screen.Stream.route, isEnabled = true),
         ShortcutItem("Ride", Icons.Default.DirectionsCar, Color(0xFF00BCD4), Screen.Ride.route, isEnabled = true),
-        ShortcutItem("Drive", Icons.Default.LocalTaxi, Color(0xFF388E8E), Screen.Drive.route, isEnabled = true)
+        ShortcutItem("Drive", Icons.Default.LocalTaxi, Color(0xFF388E8E), Screen.Drive.route, isEnabled = true),
+        ShortcutItem("Rent", Icons.Default.Apartment, Color(0xFF7E57C2), Screen.Rent.route, isEnabled = true),
+        ShortcutItem("Services", Icons.Default.HomeRepairService, Color(0xFF26A69A), Screen.Services.route, isEnabled = true),
+        ShortcutItem("Market", Icons.Default.Storefront, Color(0xFFFF7043), Screen.Market.route, isEnabled = true)
     )
 
     AnimatedVisibility(
