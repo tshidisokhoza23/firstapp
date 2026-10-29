@@ -38,7 +38,7 @@ import com.tpsk.tj.media.ui.components.HashtagText
 fun JobDetailScreen(
     job: Job,
     onBack: () -> Unit,
-    onApply: () -> Unit,
+    onApply: (String) -> Unit,
     onSave: () -> Unit = {},
     onExternalApplyClick: (String) -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
@@ -53,6 +53,7 @@ fun JobDetailScreen(
     var isSaved by remember(job.id, job.isSaved) { mutableStateOf(job.isSaved) }
 
     val isAppliedInternal = job.isApplied || job.hasAppliedInternal
+    var coverNote by remember(job.id) { mutableStateOf("") }
     val handle = remember(job.companyName) {
         job.companyName.lowercase().replace(Regex("[^a-z0-9]"), "")
     }
@@ -299,9 +300,19 @@ fun JobDetailScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Apply Button
+                    if (!job.isExternal && !isAppliedInternal) {
+                        OutlinedTextField(
+                            value = coverNote,
+                            onValueChange = { coverNote = it.take(500) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Note to employer (optional)") },
+                            minLines = 2
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     Button(
-                        onClick = onApply,
+                        onClick = { onApply(coverNote.trim()) },
                         enabled = !isAppliedInternal,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -360,7 +371,7 @@ fun JobDetailScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable { onApply() }
+                        .clickable { onApply(coverNote.trim()) }
                         .padding(6.dp)
                 ) {
                     Icon(

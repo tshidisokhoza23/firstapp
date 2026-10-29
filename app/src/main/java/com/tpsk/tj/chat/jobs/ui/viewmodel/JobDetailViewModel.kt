@@ -48,10 +48,10 @@ class JobDetailViewModel @Inject constructor(
         }
     }
 
-    fun applyForJob(jobId: String, jobTitle: String, companyName: String) {
+    fun applyForJob(jobId: String, jobTitle: String, companyName: String, coverNote: String = "") {
         viewModelScope.launch {
             _lastApplyContext.value = ApplyContext(jobId, jobTitle, companyName)
-            repository.applyForJob(jobId).collect { result ->
+            repository.applyForJob(jobId, coverNote).collect { result ->
                 _applyResult.value = result
             }
         }

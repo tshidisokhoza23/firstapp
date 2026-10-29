@@ -54,7 +54,10 @@ interface JobApi {
     suspend fun recordView(@Path("jobId") jobId: String): Response<Unit>
 
     @POST("jobs/{jobId}/apply")
-    suspend fun applyForJob(@Path("jobId") jobId: String): Response<ConversationResponse>
+    suspend fun applyForJob(
+        @Path("jobId") jobId: String,
+        @Body body: ApplyJobRequest = ApplyJobRequest()
+    ): Response<ConversationResponse>
 
     @POST("jobs/{jobId}/save")
     suspend fun saveJob(@Path("jobId") jobId: String): Response<StatusResponse>
@@ -104,6 +107,7 @@ data class CreateJobRequest(
     val skills: List<String>? = null
 )
 
+data class ApplyJobRequest(val cover_note: String = "")
 data class ReportJobRequest(val reason: String, val details: String = "")
 data class RenewJobRequest(val package_type: String)
 data class JobPaymentResponse(

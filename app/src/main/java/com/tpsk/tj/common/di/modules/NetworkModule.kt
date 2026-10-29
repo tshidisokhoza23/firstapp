@@ -240,6 +240,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideBoardApi(retrofit: Retrofit): BoardApi = retrofit.create(BoardApi::class.java)
+
+    @Provides
+    @Singleton
     fun provideRewardsApi(retrofit: Retrofit): RewardsApi = retrofit.create(RewardsApi::class.java)
 
     @Provides

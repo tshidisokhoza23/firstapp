@@ -116,15 +116,15 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
                         jobDetailViewModel.markClickedExternal(id)
                     },
                     onReportJob = { id, reason -> jobDetailViewModel.reportJob(id, reason) },
-                    onApply = {
-                        val externalUrl = currentJob.trackingApplyUrl
-                        if (currentJob.isExternal && !externalUrl.isNullOrBlank()) {
+                    onApply = { note ->
+                        val externalUrl = applicantDestination(currentJob.trackingApplyUrl)
+                        if (currentJob.isExternal && externalUrl != null) {
                             jobDetailViewModel.markClickedExternal(currentJob.id)
-                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(externalUrl)))
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, externalUrl))
                         } else if (currentJob.isApplied || currentJob.hasAppliedInternal) {
                             android.widget.Toast.makeText(context, "Already applied", android.widget.Toast.LENGTH_SHORT).show()
                         } else {
-                            jobDetailViewModel.applyForJob(currentJob.id, currentJob.title, currentJob.companyName)
+                            jobDetailViewModel.applyForJob(currentJob.id, currentJob.title, currentJob.companyName, note)
                         }
                     }
                 )
@@ -151,4 +151,16 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
             }
         }
     }
+}
+
+private fun applicantDestination(raw: String?): android.net.Uri? {
+    val value = raw?.trim().orEmpty()
+    if (value.isEmpty()) return null
+    val uri = when {
+        value.startsWith("http://") || value.startsWith("https://") || value.startsWith("mailto:") || value.startsWith("tel:") -> value
+        value.contains("@") -> "mailto:$value"
+        value.startsWith("+") || value.count { it.isDigit() } >= 9 -> "https://wa.me/${value.filter { it.isDigit() }}"
+        else -> return null
+    }
+    return android.net.Uri.parse(uri)
 }

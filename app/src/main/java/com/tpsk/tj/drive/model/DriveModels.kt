@@ -127,7 +127,8 @@ data class DriverDocument(
     val id: String,
     val type: String,
     val status: String, // "PENDING", "APPROVED", "REJECTED"
-    val url: String? = null
+    val url: String? = null,
+    @com.google.gson.annotations.SerializedName("rejection_reason") val rejectionReason: String? = null
 )
 
 data class RideRequest(

@@ -2719,8 +2719,6 @@ fun DocumentItem(doc: DriverDocument, onClick: () -> Unit = {}) {
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-            Text("Tap to upload", color = MaterialTheme.colorScheme.primary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(4.dp))
             Surface(
                 color = statusColor.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(4.dp),

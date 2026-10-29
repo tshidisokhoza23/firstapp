@@ -18,7 +18,7 @@ interface JobRepository {
         category: String? = null
     ): Flow<Resource<List<Job>>>
     fun getJob(jobId: String): Flow<Resource<Job>>
-    fun applyForJob(jobId: String): Flow<Resource<String>> // Returns conversation_id
+    fun applyForJob(jobId: String, coverNote: String = ""): Flow<Resource<String>> // Returns conversation_id
     suspend fun setJobSaved(jobId: String, saved: Boolean): Resource<Boolean>
     suspend fun markClickedExternalLocally(jobId: String)
     fun getJobApplications(): Flow<Resource<List<JobApplication>>>

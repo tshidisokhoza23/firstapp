@@ -120,10 +120,10 @@ class JobRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun applyForJob(jobId: String): Flow<Resource<String>> = flow {
+    override fun applyForJob(jobId: String, coverNote: String): Flow<Resource<String>> = flow {
         try {
             emit(Resource.Loading())
-            val response = jobApi.applyForJob(jobId)
+            val response = jobApi.applyForJob(jobId, com.tpsk.tj.chat.jobs.data.api.ApplyJobRequest(coverNote))
             val body = response.body()
             if (response.isSuccessful && body != null) {
                 jobDao.updateAppliedStatus(jobId = jobId, isApplied = true)
