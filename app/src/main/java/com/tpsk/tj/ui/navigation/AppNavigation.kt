@@ -146,17 +146,17 @@ fun AppNavigation(
         }
 
         composable(Screen.Rent.route) {
-            com.tpsk.tj.boards.ui.BoardScreen("rent", onBack = { navController.popBackStack() }, onChat = { chatId ->
+            com.tpsk.tj.boards.ui.RentScreen(onBack = { navController.popBackStack() }, onChat = { chatId ->
                 navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
             })
         }
         composable(Screen.Services.route) {
-            com.tpsk.tj.boards.ui.BoardScreen("services", onBack = { navController.popBackStack() }, onChat = { chatId ->
+            com.tpsk.tj.boards.ui.ServicesScreen(onBack = { navController.popBackStack() }, onChat = { chatId ->
                 navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
             })
         }
         composable(Screen.Market.route) {
-            com.tpsk.tj.boards.ui.BoardScreen("market", onBack = { navController.popBackStack() }, onChat = { chatId ->
+            com.tpsk.tj.boards.ui.MarketScreen(onBack = { navController.popBackStack() }, onChat = { chatId ->
                 navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
             })
         }
