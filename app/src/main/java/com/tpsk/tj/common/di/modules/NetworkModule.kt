@@ -2,6 +2,7 @@ package com.tpsk.tj.common.di.modules
 
 import com.tpsk.tj.BuildConfig
 import com.tpsk.tj.auth.data.api.AuthApi
+import com.tpsk.tj.boards.data.BoardApi
 import com.tpsk.tj.chat.data.api.ChatApi
 import com.tpsk.tj.chat.jobs.data.api.JobApi
 import com.tpsk.tj.chat.rewards.data.api.RewardsApi
