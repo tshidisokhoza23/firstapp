@@ -22,6 +22,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,6 +97,29 @@ fun PostItem(
     onMoreClick: (Post) -> Unit = {},
     onHashtagClick: (String) -> Unit = {}
 ) {
+    val sponsored = post.ad
+    if ((post.type == PostType.NATIVE_AD || post.type == PostType.INTERNAL_AD) && sponsored != null && (sponsored.contentText.isNotBlank() || !sponsored.contentUrl.isNullOrBlank() || sponsored.title.isNotBlank())) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        AdvertItem(advert = sponsored, onClick = {
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching {
+                    val click = java.net.URL(com.tpsk.tj.common.data.network.NetworkConstants.BASE_URL + "portal/ads/${sponsored.id}/click").openConnection() as java.net.HttpURLConnection
+                    click.requestMethod = "POST"
+                    click.connectTimeout = 4000
+                    click.readTimeout = 4000
+                    click.responseCode
+                    click.disconnect()
+                }
+            }
+            val url = sponsored.targetUrl
+            if (url.isNotBlank()) {
+                runCatching {
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                }
+            }
+        })
+        return
+    }
     if (post.type == PostType.EXTERNAL_AD_PLACEHOLDER || post.type == PostType.AD_UNIT || post.type == PostType.NATIVE_AD || post.type == PostType.INTERNAL_AD) {
         if (displayMode == PostDisplayMode.FEED) {
             FeedNativeAdCard(

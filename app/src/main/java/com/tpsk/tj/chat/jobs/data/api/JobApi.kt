@@ -17,7 +17,8 @@ interface JobApi {
         @Query("salary_min") salaryMin: Double? = null,
         @Query("posted_within_days") postedWithinDays: Int? = null,
         @Query("query") query: String? = null,
-        @Query("category") category: String? = null
+        @Query("category") category: String? = null,
+        @Query("sort") sort: String? = "match"
     ): Response<JobsResponse>
 
     @GET("jobs/{jobId}")

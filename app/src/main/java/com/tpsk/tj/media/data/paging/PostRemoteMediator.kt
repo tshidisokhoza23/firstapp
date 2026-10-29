@@ -146,9 +146,16 @@ class PostRemoteMediator(
     }
 
     private fun isServerAd(type: PostType, id: String): Boolean {
-        if (type == PostType.AD_UNIT || type == PostType.EXTERNAL_AD_PLACEHOLDER || type == PostType.NATIVE_AD || type == PostType.INTERNAL_AD) {
+        if (type == PostType.AD_UNIT || type == PostType.EXTERNAL_AD_PLACEHOLDER) {
             return true
         }
+        if (type == PostType.NATIVE_AD || type == PostType.INTERNAL_AD) {
+            return postLooksLikePlaceholder(id)
+        }
+        return postLooksLikePlaceholder(id)
+    }
+
+    private fun postLooksLikePlaceholder(id: String): Boolean {
         return id.startsWith("ad_unit_") || id.startsWith("external_ad_") || id.startsWith("native-ad")
     }
 

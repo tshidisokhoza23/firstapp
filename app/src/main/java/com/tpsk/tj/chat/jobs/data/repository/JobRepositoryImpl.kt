@@ -52,7 +52,8 @@ class JobRepositoryImpl @Inject constructor(
                     salaryMin = salaryMin,
                     postedWithinDays = postedWithinDays,
                     query = query,
-                    category = category
+                    category = category,
+                    sort = if (query.isNullOrBlank()) "match" else "relevance"
                 )
             }
             if (response.isSuccessful) {
