@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -75,6 +74,16 @@ fun boardCopy(board: String) = when (board) {
         yourHeader = "Your listings",
         filters = listOf("Nearby (5km)", "Appliances", "Clothes")
     )
+}
+
+fun formatPriceLabel(price: String, board: String): String {
+    val trimmed = price.trim()
+    if (trimmed.isBlank()) return ""
+    return when (board) {
+        "rent" -> if (trimmed.contains("month", ignoreCase = true)) trimmed else "$trimmed / month"
+        "services" -> if (trimmed.contains("hr", ignoreCase = true) || trimmed.contains("hour", ignoreCase = true)) trimmed else "$trimmed / hr"
+        else -> trimmed
+    }
 }
 
 @HiltViewModel
@@ -246,7 +255,7 @@ fun BoardScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 4.dp),
                     placeholder = { Text("Search area or title", color = Color(0xFF9CA3AF)) },
                     leadingIcon = {
                         Icon(Icons.Filled.Search, contentDescription = "Search", tint = Color(0xFF9CA3AF))
@@ -254,8 +263,8 @@ fun BoardScreen(
                     singleLine = true,
                     shape = CircleShape,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFF1A242D),
-                        unfocusedContainerColor = Color(0xFF1A242D),
+                        focusedContainerColor = Color(0xFF16202A),
+                        unfocusedContainerColor = Color(0xFF16202A),
                         focusedBorderColor = Color(0xFF2A3847),
                         unfocusedBorderColor = Color(0xFF2A3847)
                     )
@@ -277,7 +286,7 @@ fun BoardScreen(
                                 viewModel.load(if (index == 0) query else filter)
                             },
                             shape = CircleShape,
-                            color = if (isSelected) Color(0xFF0F4C45) else Color(0xFF1A242D),
+                            color = if (isSelected) Color(0xFF0F4C45) else Color(0xFF16202A),
                             border = if (isSelected) {
                                 androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00D2B4))
                             } else {
@@ -335,20 +344,22 @@ fun BoardScreen(
                 }
             }
 
-            // Your Listings
+            // Your Listings / Services / Rooms Section Header
+            item(span = { GridItemSpan(2) }) {
+                Text(
+                    text = copy.yourHeader,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color.White,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+
             if (mine.isNotEmpty()) {
-                item(span = { GridItemSpan(2) }) {
-                    Text(
-                        text = copy.yourHeader,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = Color.White,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
                 items(mine, key = { "mine-${it.id}" }) { item ->
                     ListingCard(
                         item = item,
+                        board = board,
                         action = "Mark unavailable",
                         onActionClick = { viewModel.close(item.id) },
                         onClick = { selected = item }
@@ -356,14 +367,14 @@ fun BoardScreen(
                 }
             }
 
-            // Available Listings
+            // Available Listings Header
             item(span = { GridItemSpan(2) }) {
                 Text(
                     text = "Available",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = Color.White,
-                    modifier = Modifier.padding(top = 8.dp)
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
 
@@ -375,6 +386,7 @@ fun BoardScreen(
                 items(items, key = { it.id }) { item ->
                     ListingCard(
                         item = item,
+                        board = board,
                         onClick = { selected = item }
                     )
                 }
@@ -393,7 +405,7 @@ fun BoardScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (item.photoUrl.isNotBlank()) AsyncImage(item.photoUrl, item.title, Modifier.fillMaxWidth().height(160.dp))
-                    Text("${item.priceLabel} · ${item.area}")
+                    Text("${formatPriceLabel(item.priceLabel, board)} · ${item.area.ifBlank { "Gauteng" }}")
                     Text(item.description)
                     Text(item.sellerName, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(note, { note = it.take(300) }, Modifier.fillMaxWidth(), label = { Text("Message") })
@@ -415,10 +427,13 @@ fun BoardScreen(
 @Composable
 private fun ListingCard(
     item: BoardListing,
+    board: String,
     action: String? = null,
     onActionClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
+    val displayPrice = formatPriceLabel(item.priceLabel, board)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -447,11 +462,11 @@ private fun ListingCard(
             }
             Column(
                 modifier = Modifier.padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                if (item.priceLabel.isNotBlank()) {
+                if (displayPrice.isNotBlank()) {
                     Text(
-                        text = item.priceLabel,
+                        text = displayPrice,
                         color = Color(0xFF00D2B4),
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp
@@ -464,18 +479,23 @@ private fun ListingCard(
                     color = Color.White,
                     maxLines = 1
                 )
-                val subtitle = listOfNotNull(
-                    item.sellerName.ifBlank { null },
-                    item.area.ifBlank { null }
-                ).joinToString(" · ").ifBlank { "Gauteng" }
+                if (item.sellerName.isNotBlank() && item.sellerName != item.title) {
+                    Text(
+                        text = item.sellerName,
+                        fontSize = 13.sp,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
+                val areaText = item.area.ifBlank { "Gauteng" }
                 Text(
-                    text = subtitle,
+                    text = areaText,
                     fontSize = 13.sp,
                     color = Color(0xFF9CA3AF),
                     maxLines = 1
                 )
                 if (action != null && onActionClick != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = action,
                         color = Color(0xFF3B82F6),
