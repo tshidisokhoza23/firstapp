@@ -1500,7 +1500,7 @@ else {
                     }
                 }
 
-                items(suggestions) { suggestion ->
+                items(suggestions, key = { it.id ?: it.name }) { suggestion ->
                     DestinationItem(
                         destination = suggestion,
                         onFavoriteToggle = {
@@ -1524,7 +1524,7 @@ else {
                         modifier = Modifier.padding(vertical = 16.dp)
                     )
                 }
-                items(recentItems) { destination ->
+                items(recentItems, key = { it.id ?: it.name }) { destination ->
                     DestinationItem(
                         destination = destination,
                         onFavoriteToggle = {
@@ -1655,7 +1655,7 @@ fun RideSelectionFlow(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 val prefList = preferences.keys.toList()
-                items(prefList) { pref ->
+                items(prefList, key = { it }) { pref ->
                     val isSelected = preferences[pref] ?: false
                     FilterChip(
                         selected = isSelected,
@@ -1685,7 +1685,7 @@ fun RideSelectionFlow(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(options) { option ->
+                items(options, key = { it.id }) { option ->
                     RideOptionItem(
                         option = option,
                         isSelected = selectedRide?.id == option.id,
@@ -2514,7 +2514,7 @@ fun DriverDashboard(
                         Text("My Documents", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     }
                     
-                    items(documents) { doc ->
+                    items(documents, key = { it.id }) { doc ->
                         DocumentItem(doc) { openUpload(doc.type) }
                     }
                     
@@ -3069,10 +3069,11 @@ private fun DriverAvatar(url: String?, modifier: Modifier = Modifier, iconSize: 
 @Composable
 fun CarPhotoStrip(urls: List<String>, onRemove: ((String) -> Unit)? = null) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(urls) { url ->
+        items(urls, key = { it }) { url ->
             Box(modifier = Modifier.size(88.dp)) {
+                val formattedUrl = remember(url) { com.tpsk.tj.common.util.MediaUtils.formatUrl(url) }
                 coil.compose.AsyncImage(
-                    model = com.tpsk.tj.common.util.MediaUtils.formatUrl(url),
+                    model = formattedUrl,
                     contentDescription = "Car photo",
                     modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop

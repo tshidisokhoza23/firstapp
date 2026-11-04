@@ -85,6 +85,18 @@ class ChatViewModel @Inject constructor(
     val mingleChats = repository.getMingleChats().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val messages = uiState.map { it.messages }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val contacts = repository.getContacts().distinctUntilChanged().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
+    val registeredContactsNotInChats = kotlinx.coroutines.flow.combine(chats, contacts) { chatsRes, contactsRes ->
+        val chatList = chatsRes.data ?: emptyList()
+        val contactList = contactsRes.data ?: emptyList()
+        val activeChatUserIds = chatList.mapNotNull { it.otherUserId ?: it.id }.toSet()
+        contactList.filter { contact ->
+            contact.isRegistered &&
+            contact.id !in activeChatUserIds &&
+            "user_${contact.id}" !in activeChatUserIds &&
+            contact.id.removePrefix("user_") !in activeChatUserIds
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val archivedChats = uiState.map { it.archivedChats }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val starredMessages = uiState.map { it.starredMessages }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Resource.Loading())
     val chatSearchResults = uiState.map { it.chatSearchResults }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

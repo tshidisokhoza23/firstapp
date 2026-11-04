@@ -792,21 +792,7 @@ fun ChatList(
     val density = LocalDensity.current
     val currentUser = com.tpsk.tj.LocalCurrentUser.current
     
-    val contactsState by chatViewModel.contacts.collectAsState()
-
-    val loadedContacts = remember(contactsState) {
-        (contactsState.data ?: emptyList()).filter { it.isRegistered || it.displayName.isNotBlank() }
-    }
-
-    val registeredContacts = remember(loadedContacts, currentUser) {
-        val myId = currentUser?.id.orEmpty()
-        val myPhoneDigits = currentUser?.phoneNumber?.filter { it.isDigit() }.orEmpty().let { if (it.length >= 9) it.takeLast(9) else it }
-        loadedContacts.filter { contact ->
-            contact.isRegistered &&
-            !(myId.isNotBlank() && (contact.id == myId || contact.id == "user_$myId" || contact.id.removePrefix("user_") == myId.removePrefix("user_"))) &&
-            !(myPhoneDigits.isNotBlank() && contact.phoneNumber.filter { it.isDigit() }.let { if (it.length >= 9) it.takeLast(9) else it } == myPhoneDigits)
-        }
-    }
+    val registeredContactsNotInChats by chatViewModel.registeredContactsNotInChats.collectAsState()
 
     var isContactsExpanded by remember { mutableStateOf(true) }
 
@@ -853,13 +839,6 @@ fun ChatList(
                     onPostedStoriesClick = onPostedStoriesClick
                 )
             }
-        }
-
-        val activeChatUserIds = chats.mapNotNull { it.otherUserId ?: it.id }.toSet()
-        val registeredContactsNotInChats = registeredContacts.filter { contact ->
-            contact.id !in activeChatUserIds &&
-            "user_${contact.id}" !in activeChatUserIds &&
-            contact.id.removePrefix("user_") !in activeChatUserIds
         }
 
         if (chats.isEmpty() && archivedChatsCount == 0 && registeredContactsNotInChats.isEmpty()) {

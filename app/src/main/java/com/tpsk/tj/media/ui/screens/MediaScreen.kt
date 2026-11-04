@@ -730,11 +730,11 @@ fun MainFeedSection(
                 key = { row ->
                     val adsBefore = row / (postsPerAd + 1)
                     val isAd = adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots
-                    if (isAd) "feed-ad-$adsBefore" else {
+                    if (isAd) -row else { // Use negative row index as unique key for ads to avoid allocation
                         val postIndex = row - adsBefore
                         if (postIndex in 0 until posts.itemCount) {
-                            try { posts.peek(postIndex)?.id?.let { "post-$it" } } catch (e: Exception) { null } ?: "loading-post-$postIndex"
-                        } else "loading-post-$postIndex"
+                            try { posts.peek(postIndex)?.id ?: row } catch (e: Exception) { row }
+                        } else row
                     }
                 },
                 contentType = { row ->
@@ -878,7 +878,7 @@ fun SearchResultsList(
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(postsList) { post ->
+                    items(postsList, key = { it.id }) { post ->
                         VerticalFeedPostCard(
                             post = post,
                             autoplayEnabled = autoplayEnabled,

@@ -182,9 +182,9 @@ fun PostItem(
 fun ShortGridItem(post: Post, onClick: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val rawModel = if (!post.thumbnailUrl.isNullOrBlank()) post.thumbnailUrl else post.mediaUrls.firstOrNull()
-    val model = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawModel)
 
-    val imageRequest = remember(model) {
+    val imageRequest = remember(rawModel) {
+        val model = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawModel)
         if (model != null) {
             coil.request.ImageRequest.Builder(context)
                 .data(model)
@@ -259,20 +259,12 @@ fun ShortGridItem(post: Post, onClick: () -> Unit) {
             )
             Spacer(modifier = Modifier.width(3.dp))
             Text(
-                text = formatShortGridViews(post.views),
+                text = post.formattedShortViews,
                 color = Color.White,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
         }
-    }
-}
-
-private fun formatShortGridViews(number: Long): String {
-    return when {
-        number >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", number / 1_000_000.0)
-        number >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", number / 1_000.0)
-        else -> number.toString()
     }
 }
 
@@ -376,9 +368,7 @@ fun VerticalFeedPostCard(
                 val targetProfileId = displayPost.authorId.ifBlank { displayPost.authorHandle }.ifBlank { post.authorId }.ifBlank { post.authorHandle }
 
                 if (!showThreadLine) {
-                    val avatarUrl = remember(displayPost.authorAvatarUrl) {
-                        com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.authorAvatarUrl)
-                    }
+                    val avatarUrl = displayPost.formattedAvatarUrl
                     val avatarPainter = remember(displayPost.authorAvatarColor) {
                         androidx.compose.ui.graphics.painter.ColorPainter(displayPost.authorAvatarColor)
                     }
@@ -400,7 +390,7 @@ fun VerticalFeedPostCard(
                     Spacer(modifier = Modifier.width(10.dp))
                 }
 
-                val ts = remember(displayPost.timestamp) { formatTwitterTime(displayPost.timestamp) }
+                val ts = displayPost.formattedTimestamp
 
                 Column(
                     modifier = Modifier
@@ -510,13 +500,11 @@ fun VerticalFeedPostCard(
             // 3. MAIN MEDIA AREA
             if (displayPost.mediaUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                val isVideo = com.tpsk.tj.common.util.MediaUtils.isVideo(displayPost.mediaUrls[0]) && displayPost.mediaUrls.size == 1
+                val isVideo = displayPost.formattedVideoUrl != null
                 
                 if (isVideo) {
-                    val videoUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.mediaUrls[0]) ?: ""
-                    val thumbUrl = if (!displayPost.thumbnailUrl.isNullOrBlank()) {
-                        com.tpsk.tj.common.util.MediaUtils.formatUrl(displayPost.thumbnailUrl)
-                    } else videoUrl
+                    val videoUrl = displayPost.formattedVideoUrl ?: ""
+                    val thumbUrl = displayPost.formattedThumbnailUrl ?: videoUrl
 
                     Box(
                         modifier = Modifier
@@ -712,14 +700,12 @@ fun VerticalFeedPostCard(
             }
 
             // 4. BOTTOM ROW: INTERACTIONS (CLEAN BORDERLESS ACTIONS)
-            val replyText = remember(displayPost.repliesCount) { if (displayPost.repliesCount > 0) "Reply ${formatCount(displayPost.repliesCount)}" else "Reply 0" }
-            val repostText = remember(post.repostCount) { if (post.repostCount > 0) "Repost ${formatCount(post.repostCount)}" else "Repost 0" }
-            val likeText = remember(post.likes) { if (post.likes > 0) "Like ${formatCount(post.likes)}" else "Like" }
-            val viewsText = remember(post.views) { "Views ${formatCount(post.views)}" }
-            val saveText = remember(post.isBookmarked, post.quoteCount) {
-                if (post.isBookmarked) "Saved ${formatCount(post.quoteCount)}" else "Save ${formatCount(post.quoteCount)}"
-            }
-            val shareText = remember(post.shares) { "Share ${formatCount(post.shares)}" }
+            val replyText = displayPost.formattedReplies
+            val repostText = post.formattedReposts
+            val likeText = post.formattedLikes
+            val viewsText = post.formattedViews
+            val saveText = post.formattedQuotes
+            val shareText = post.formattedShares
 
             val transparentBg = Color.Transparent
             val actionTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -823,15 +809,6 @@ fun VerticalFeedPostCard(
     }
 }
 
-private fun formatCount(count: Long): String {
-    val nonNegative = count.coerceAtLeast(0)
-    return when {
-        nonNegative >= 1_000_000 -> String.format(Locale.US, "%.1fM", nonNegative / 1_000_000f)
-        nonNegative >= 1_000 -> String.format(Locale.US, "%.1fK", nonNegative / 1_000f)
-        else -> nonNegative.toString()
-    }
-}
-
 @Composable
 private fun PostPill(
     text: String,
@@ -921,7 +898,7 @@ fun PostSideBar(
                 .clickable { onProfileClick() }
         ) {
             AsyncImage(
-                model = com.tpsk.tj.common.util.MediaUtils.formatUrl(avatarUrl),
+                model = remember(avatarUrl) { com.tpsk.tj.common.util.MediaUtils.formatUrl(avatarUrl) },
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,

@@ -67,7 +67,38 @@ data class Post(
     val isContest: Boolean = false,
     val contestVotes: Int = 0,
     val collaborators: List<String> = emptyList()
-)
+) {
+    val formattedReplies: String by lazy(LazyThreadSafetyMode.NONE) { if (repliesCount > 0) "Reply ${formatCount(repliesCount)}" else "Reply 0" }
+    val formattedReposts: String by lazy(LazyThreadSafetyMode.NONE) { if (repostCount > 0) "Repost ${formatCount(repostCount)}" else "Repost 0" }
+    val formattedLikes: String by lazy(LazyThreadSafetyMode.NONE) { if (likes > 0) "Like ${formatCount(likes)}" else "Like" }
+    val formattedViews: String by lazy(LazyThreadSafetyMode.NONE) { "Views ${formatCount(views)}" }
+    val formattedShares: String by lazy(LazyThreadSafetyMode.NONE) { "Share ${formatCount(shares)}" }
+    val formattedShortViews: String by lazy(LazyThreadSafetyMode.NONE) { formatCount(views) }
+    val formattedQuotes: String by lazy(LazyThreadSafetyMode.NONE) { if (isBookmarked) "Saved ${formatCount(quoteCount)}" else "Save ${formatCount(quoteCount)}" }
+    val formattedTimestamp: String by lazy(LazyThreadSafetyMode.NONE) { com.tpsk.tj.common.util.formatTwitterTime(timestamp) }
+    val formattedVideoUrl: String? by lazy(LazyThreadSafetyMode.NONE) {
+        if (mediaUrls.isNotEmpty() && com.tpsk.tj.common.util.MediaUtils.isVideo(mediaUrls[0])) {
+            com.tpsk.tj.common.util.MediaUtils.formatUrl(mediaUrls[0])
+        } else null
+    }
+    val formattedThumbnailUrl: String? by lazy(LazyThreadSafetyMode.NONE) {
+        if (!thumbnailUrl.isNullOrBlank()) {
+            com.tpsk.tj.common.util.MediaUtils.formatUrl(thumbnailUrl)
+        } else formattedVideoUrl
+    }
+    val formattedAvatarUrl: String? by lazy(LazyThreadSafetyMode.NONE) {
+        com.tpsk.tj.common.util.MediaUtils.formatUrl(authorAvatarUrl)
+    }
+
+    private fun formatCount(count: Long): String {
+        val nonNegative = if (count < 0) 0L else count
+        return when {
+            nonNegative >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", nonNegative / 1_000_000f)
+            nonNegative >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", nonNegative / 1_000f)
+            else -> nonNegative.toString()
+        }
+    }
+}
 
 fun Post.isOwnedBy(userId: String?, userHandle: String? = null): Boolean {
     val cleanUserId = userId?.trim().orEmpty()

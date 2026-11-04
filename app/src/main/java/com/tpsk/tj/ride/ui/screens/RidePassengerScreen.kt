@@ -242,7 +242,7 @@ fun RidePassengerScreen(
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp)) {
-                        items(registeredContacts) { contact ->
+                        items(registeredContacts, key = { it.id }) { contact ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -254,7 +254,6 @@ fun RidePassengerScreen(
                                     .padding(vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                androidx.compose.foundation.shape.CircleShape
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
@@ -522,7 +521,7 @@ private fun RidePlaceSearch(
         )
         Spacer(Modifier.height(12.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(suggestions) { place ->
+            items(suggestions, key = { it.id }) { place ->
                 Surface(
                     onClick = { onPick(place) },
                     color = MaterialTheme.colorScheme.surfaceVariant,
