@@ -104,11 +104,18 @@ class FirstAppFirebaseMessagingService : FirebaseMessagingService() {
     private fun handleRideUpdate(data: Map<String, String>, openDrive: Boolean = false) {
         val title = data["title"] ?: "TJ Ride"
         val body = data["body"] ?: "Your ride was updated"
+        
+        // Stop any ringing if this trip is updated or cancelled
+        data["trip_id"]?.let { tripId ->
+            com.tpsk.tj.drive.ui.RideRequestAlerts.stopIf(this, tripId)
+        }
+        
         createMessagesChannel()
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra(if (openDrive) "open_drive" else "open_ride", true)
         }
+        
         val pendingIntent = PendingIntent.getActivity(
             this,
             ("ride_" + (data["trip_id"] ?: title)).hashCode(),

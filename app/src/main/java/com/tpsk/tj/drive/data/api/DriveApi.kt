@@ -121,7 +121,8 @@ data class CreateRideRequest(
     val ride_type: String,
     val duration_seconds: Int = 0,
     val distance_meters: Int = 0,
-    val stops: List<RideStopBody> = emptyList()
+    val stops: List<RideStopBody> = emptyList(),
+    val sponsor_id: String? = null
 )
 
 data class RideStopBody(val address: String, val lat: Double, val lng: Double)

@@ -31,8 +31,8 @@ object RideRequestAlerts {
         if (announcedId == id || ringingId == id) stop(context)
     }
 
-    fun alert(context: Context, request: RideRequest) {
-        if (request.id.isBlank() || request.id in declined || announcedId == request.id) return
+    fun alert(context: Context, request: RideRequest?) {
+        if (request == null || request.id.isBlank() || request.id in declined || announcedId == request.id) return
         stop(context)
         announcedId = request.id
         ringingId = request.id
@@ -49,7 +49,7 @@ object RideRequestAlerts {
         val pm = app.getSystemService(PowerManager::class.java)
         wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tj:ride-request")?.apply {
             setReferenceCounted(false)
-            acquire(45_000)
+            acquire(25_000) // Lowered from 45_000 to prevent infinite/excessive ringing
         }
         val launch = Intent(app, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -81,12 +81,14 @@ object RideRequestAlerts {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(pending)
+            // Note: fullScreenIntent is critical here so that Android opens the app automatically if screen is locked
+            .setFullScreenIntent(pending, true)
             .setVibrate(longArrayOf(0, 800, 400, 800))
             .build()
         manager.notify(NOTIFICATION_ID, notification)
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             silence(request.id)
-        }, 45_000)
+        }, 25_000) // Lowered from 45_000
     }
 
     private fun silence(id: String) {

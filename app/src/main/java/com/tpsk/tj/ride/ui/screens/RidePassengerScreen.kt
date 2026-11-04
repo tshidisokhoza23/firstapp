@@ -98,8 +98,10 @@ fun RidePassengerScreen(
     val context = LocalContext.current
     val status = viewModel.bookingStatus.value
     val savedPlaces by viewModel.destinations.collectAsState()
+    val registeredContacts by viewModel.registeredContacts.collectAsState()
     var editing by remember { mutableStateOf<String?>(null) }
     var showCancel by remember { mutableStateOf(false) }
+    var showSponsorPicker by remember { mutableStateOf(false) }
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val greeting = when {
         hour < 12 -> "Good morning"
@@ -207,6 +209,7 @@ fun RidePassengerScreen(
                             viewModel.startBooking()
                         }
                     },
+                    onAskToPay = { showSponsorPicker = true },
                     modifier = Modifier.padding(bottom = bottomPadding)
                 )
             }
@@ -221,6 +224,61 @@ fun RidePassengerScreen(
                 showCancel = false
             }
         )
+    }
+    
+    if (showSponsorPicker) {
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showSponsorPicker = false },
+            containerColor = MaterialTheme.colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).padding(bottom = 32.dp)) {
+                Text("Select Sponsor", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text("They must be registered on the app to pay for your ride.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                Spacer(Modifier.height(16.dp))
+                
+                if (registeredContacts.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                        Text("No registered contacts found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+                        items(registeredContacts) { contact ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { 
+                                        showSponsorPicker = false
+                                        viewModel.startBooking(sponsorId = contact.id)
+                                        Toast.makeText(context, "Requesting ride payment from ${contact.displayName}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                androidx.compose.foundation.shape.CircleShape
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = contact.displayName.take(1).uppercase(),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Spacer(Modifier.width(16.dp))
+                                Column {
+                                    Text(contact.displayName, fontWeight = FontWeight.SemiBold)
+                                    Text(contact.phoneNumber, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -243,6 +301,7 @@ private fun RideHomeCard(
     onPlace: (Destination) -> Unit,
     onSelectRide: (RideOption) -> Unit,
     onRequest: () -> Unit,
+    onAskToPay: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val home = places.find { it.type == DestinationType.HOME }
@@ -288,6 +347,17 @@ private fun RideHomeCard(
                 RideStopRow("Destination", destination.ifBlank { "Where to?" }, MaterialTheme.colorScheme.error, onEditDestination)
                 if (stops.size < 2) {
                     Text("Add stop", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable(onClick = onAddStop))
+                }
+                
+                // Add Ask to Pay feature toggle right here below destination entry
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 4.dp))
+                Row(modifier = Modifier.fillMaxWidth().clickable { onAskToPay() }, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Menu, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Ask someone to pay", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Send ride request to a contact", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }

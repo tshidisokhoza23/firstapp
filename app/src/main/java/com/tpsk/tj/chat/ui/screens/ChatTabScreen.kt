@@ -181,7 +181,17 @@ fun ChatsListScreen(
     //    chatViewModel.syncChats()
     // }
 
+    val tabs = listOf("Chats", "Channels", "Nearby", "Rewards")
+
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = selectedTabItem,
+        pageCount = { tabs.size }
+    )
+
     LaunchedEffect(selectedTabItem) {
+        if (pagerState.currentPage != selectedTabItem) {
+            pagerState.animateScrollToPage(selectedTabItem)
+        }
         when (selectedTabItem) {
             1 -> channelsViewModel.fetchChannels()
             2 -> chatViewModel.fetchChats()
@@ -189,7 +199,12 @@ fun ChatsListScreen(
         }
     }
 
-    val tabs = listOf("Chats", "Channels", "Nearby", "Rewards")
+    LaunchedEffect(pagerState.currentPage) {
+        if (selectedTabItem != pagerState.currentPage) {
+            selectedTabItem = pagerState.currentPage
+            chatViewModel.setActiveSubTab(pagerState.currentPage)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -524,22 +539,8 @@ fun ChatsListScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            AnimatedContent(
-                targetState = selectedTabItem,
-                transitionSpec = {
-                    if (animationsEnabled) {
-                        if (targetState > initialState) {
-                            (slideInHorizontally { width -> width } + fadeIn()).togetherWith(slideOutHorizontally { width -> -width } + fadeOut())
-                        } else {
-                            (slideInHorizontally { width -> -width } + fadeIn()).togetherWith(slideOutHorizontally { width -> width } + fadeOut())
-                        }.using(
-                            SizeTransform(clip = false)
-                        )
-                    } else {
-                        fadeIn().togetherWith(fadeOut())
-                    }
-                },
-                label = "ChatTabContent",
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pagerState,
                 modifier = Modifier.weight(1f)
             ) { targetTab ->
                 Box(modifier = Modifier.fillMaxSize()) {

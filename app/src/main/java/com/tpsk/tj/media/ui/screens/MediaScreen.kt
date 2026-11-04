@@ -330,7 +330,7 @@ fun MediaScreen(
                             onBookmark = onBookmarkPost,
                             onDeletePost = onDeletePost,
                             onMoreClick = { showPostMoreOptions = it },
-                            onReplyClick = { p, r -> 
+                            onReplyClick = { p, r ->
                                 onRequestCreatePost(r?.id ?: p.id, null)
                             },
                             onProfileClick = { id ->
@@ -672,6 +672,7 @@ fun MainFeedSection(
                         isRefreshing = isManualRefreshing,
                         onRefresh = {
                             isManualRefreshing = true
+                            com.tpsk.tj.common.ui.components.FeedNativeAdLoader.clearCache()
                             posts.refresh()
                             onRefresh()
                         },

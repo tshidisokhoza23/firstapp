@@ -20,7 +20,7 @@ interface DriveRepository {
     fun updateOnlineStatus(online: Boolean, latitude: Double, longitude: Double): Flow<Resource<Boolean>>
     
     // Ride Lifecycle
-    fun createRideRequest(pickup: String, dest: String, pLat: Double, pLng: Double, dLat: Double, dLng: Double, fare: Double, distance: String, type: String, meters: Int = 0, seconds: Int = 0, stops: List<com.tpsk.tj.drive.data.api.RideStopBody> = emptyList()): Flow<Resource<String>>
+    fun createRideRequest(pickup: String, dest: String, pLat: Double, pLng: Double, dLat: Double, dLng: Double, fare: Double, distance: String, type: String, meters: Int = 0, seconds: Int = 0, stops: List<com.tpsk.tj.drive.data.api.RideStopBody> = emptyList(), sponsorId: String? = null): Flow<Resource<String>>
     fun reportPresence(lat: Double, lng: Double): Flow<Resource<AreaPresence>>
     fun markStop(rideId: String, index: Int, action: String): Flow<Resource<Boolean>>
     fun updateRideStatus(rideId: String, status: String): Flow<Resource<Boolean>>

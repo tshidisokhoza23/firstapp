@@ -66,18 +66,18 @@ fun FeedNativeAd(
     layoutResId: Int = R.layout.native_ad_social_item
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var nativeAd by remember(slotKey) { mutableStateOf<NativeAd?>(null) }
+    var nativeAd by remember(slotKey) { mutableStateOf<NativeAd?>(FeedNativeAdLoader.ads[slotKey]) }
     var bound by remember(slotKey) { mutableStateOf(false) }
     var failed by remember(slotKey) { mutableStateOf(false) }
     val news = layoutResId == R.layout.native_ad_news
     val slotHeight = if (news) NewsSlotHeight else SocialSlotHeight
-    val height by animateDpAsState(
-        targetValue = if (failed) 0.dp else slotHeight,
-        animationSpec = tween(durationMillis = 180),
-        label = "adSlotHeight"
-    )
 
     DisposableEffect(slotKey, adUnitId) {
+        // If we already have a loaded ad cached in memory for this slot, do not request a new one
+        if (nativeAd != null) {
+            return@DisposableEffect onDispose {}
+        }
+        
         failed = false
         val owner = SlotOwner()
         val cancel = FeedNativeAdLoader.load(
@@ -89,6 +89,7 @@ fun FeedNativeAd(
                 } else {
                     owner.ad = ad
                     nativeAd = ad
+                    FeedNativeAdLoader.ads[slotKey] = ad
                 }
             },
             onFailed = { failed = true }
@@ -96,21 +97,18 @@ fun FeedNativeAd(
         onDispose {
             owner.disposed = true
             cancel()
-            owner.ad?.destroy()
-            owner.ad = null
-            nativeAd = null
-            bound = false
         }
     }
 
-    if (failed && height < 1.dp) return
+    if (failed) return
     Box(
         modifier
             .fillMaxWidth()
-            .height(height)
+            // Lock the overall height so there are absolutely zero layout jumps when failing or loading
+            .height(slotHeight)
             .clipToBounds()
     ) {
-        if (!bound) {
+        if (!bound && !failed) {
             AdSlotSkeleton(news = news)
         }
         val ad = nativeAd ?: return@Box
@@ -122,8 +120,15 @@ fun FeedNativeAd(
         factory = { viewContext ->
             val root = FrameLayout(viewContext)
             try {
+                // Keep the inflated view in memory for this composable's lifecycle
                 val adView = LayoutInflater.from(viewContext)
                     .inflate(layoutResId, root, false) as NativeAdView
+                
+                // Ensure any previous ad view bindings are cleanly detached to prevent
+                // "The specified child already has a parent" crashes during recycling
+                val parent = adView.parent as? android.view.ViewGroup
+                parent?.removeView(adView)
+                
                 adView.layoutParams = FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT
@@ -142,17 +147,10 @@ fun FeedNativeAd(
             root
         },
         update = { root ->
-            val adView = root.getChildAt(0) as? NativeAdView ?: return@AndroidView
-            if (adView.tag != ad) {
-                bindWhenLaidOut(
-                    adView,
-                    ad,
-                    onBound = { bound = true },
-                    onFailed = { failed = true }
-                )
-            } else if (!bound) {
-                bound = true
-            }
+            // Leave empty! Do NOT call bindWhenLaidOut or populateNativeAdView here.
+            // AdMob NativeAdView does not like being re-populated on scroll updates.
+            // As per best practices, inflate and bind only once in the factory block.
+            // The Box wrapper holds a strict height, preventing jumps even if this recomposes.
         }
         )
     }
@@ -370,6 +368,14 @@ internal object FeedNativeAdLoader {
     private val main = Handler(Looper.getMainLooper())
     private var inFlight = 0
     private val pending = ArrayDeque<Request>()
+    
+    // Add cache
+    val ads = HashMap<String, NativeAd>()
+
+    fun clearCache() {
+        ads.values.forEach { it.destroy() }
+        ads.clear()
+    }
 
     private class Request(
         val context: android.content.Context,

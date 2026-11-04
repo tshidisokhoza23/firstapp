@@ -214,12 +214,13 @@ class DriveRepositoryImpl @Inject constructor(
         type: String,
         meters: Int,
         seconds: Int,
-        stops: List<com.tpsk.tj.drive.data.api.RideStopBody>
+        stops: List<com.tpsk.tj.drive.data.api.RideStopBody>,
+        sponsorId: String?
     ): Flow<Resource<String>> = flow {
         emit(Resource.Loading())
         try {
             val res = driveApi.createRideRequest(com.tpsk.tj.drive.data.api.CreateRideRequest(
-                pickup, dest, pLat, pLng, dLat, dLng, fare, distance, type, seconds, meters, stops
+                pickup, dest, pLat, pLng, dLat, dLng, fare, distance, type, seconds, meters, stops, sponsorId
             ))
             if (res.isSuccessful && res.body() != null) {
                 emit(Resource.Success(res.body()!!.ride_id))
