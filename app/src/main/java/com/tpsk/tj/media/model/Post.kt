@@ -68,26 +68,26 @@ data class Post(
     val contestVotes: Int = 0,
     val collaborators: List<String> = emptyList()
 ) {
-    val formattedReplies: String by lazy(LazyThreadSafetyMode.NONE) { if (repliesCount > 0) "Reply ${formatCount(repliesCount)}" else "Reply 0" }
-    val formattedReposts: String by lazy(LazyThreadSafetyMode.NONE) { if (repostCount > 0) "Repost ${formatCount(repostCount)}" else "Repost 0" }
-    val formattedLikes: String by lazy(LazyThreadSafetyMode.NONE) { if (likes > 0) "Like ${formatCount(likes)}" else "Like" }
-    val formattedViews: String by lazy(LazyThreadSafetyMode.NONE) { "Views ${formatCount(views)}" }
-    val formattedShares: String by lazy(LazyThreadSafetyMode.NONE) { "Share ${formatCount(shares)}" }
-    val formattedShortViews: String by lazy(LazyThreadSafetyMode.NONE) { formatCount(views) }
-    val formattedQuotes: String by lazy(LazyThreadSafetyMode.NONE) { if (isBookmarked) "Saved ${formatCount(quoteCount)}" else "Save ${formatCount(quoteCount)}" }
-    val formattedTimestamp: String by lazy(LazyThreadSafetyMode.NONE) { com.tpsk.tj.common.util.formatTwitterTime(timestamp) }
-    val formattedVideoUrl: String? by lazy(LazyThreadSafetyMode.NONE) {
-        if (mediaUrls.isNotEmpty() && com.tpsk.tj.common.util.MediaUtils.isVideo(mediaUrls[0])) {
+    val formattedReplies: String get() = if (repliesCount > 0) "Reply ${formatCount(repliesCount)}" else "Reply 0"
+    val formattedReposts: String get() = if (repostCount > 0) "Repost ${formatCount(repostCount)}" else "Repost 0"
+    val formattedLikes: String get() = if (likes > 0) "Like ${formatCount(likes)}" else "Like"
+    val formattedViews: String get() = "Views ${formatCount(views)}"
+    val formattedShares: String get() = "Share ${formatCount(shares)}"
+    val formattedShortViews: String get() = formatCount(views)
+    val formattedQuotes: String get() = if (isBookmarked) "Saved ${formatCount(quoteCount)}" else "Save ${formatCount(quoteCount)}"
+    val formattedTimestamp: String get() = com.tpsk.tj.common.util.formatTwitterTime(timestamp)
+    val formattedVideoUrl: String? get() {
+        return if (mediaUrls.isNotEmpty() && com.tpsk.tj.common.util.MediaUtils.isVideo(mediaUrls[0])) {
             com.tpsk.tj.common.util.MediaUtils.formatUrl(mediaUrls[0])
         } else null
     }
-    val formattedThumbnailUrl: String? by lazy(LazyThreadSafetyMode.NONE) {
-        if (!thumbnailUrl.isNullOrBlank()) {
+    val formattedThumbnailUrl: String? get() {
+        return if (!thumbnailUrl.isNullOrBlank()) {
             com.tpsk.tj.common.util.MediaUtils.formatUrl(thumbnailUrl)
         } else formattedVideoUrl
     }
-    val formattedAvatarUrl: String? by lazy(LazyThreadSafetyMode.NONE) {
-        com.tpsk.tj.common.util.MediaUtils.formatUrl(authorAvatarUrl)
+    val formattedAvatarUrl: String? get() {
+        return com.tpsk.tj.common.util.MediaUtils.formatUrl(authorAvatarUrl)
     }
 
     private fun formatCount(count: Long): String {
