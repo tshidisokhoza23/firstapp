@@ -63,9 +63,9 @@ class SocialRepositoryImpl @Inject constructor(
         val isShorts = feedType == "shorts"
         return Pager(
             config = if (isShorts) {
-                PagingConfig(pageSize = 6, initialLoadSize = 6, prefetchDistance = 2, enablePlaceholders = false)
+                PagingConfig(pageSize = 6, initialLoadSize = 12, prefetchDistance = 6, enablePlaceholders = false)
             } else {
-                PagingConfig(pageSize = 15, initialLoadSize = 15, prefetchDistance = 4, enablePlaceholders = false)
+                PagingConfig(pageSize = 15, initialLoadSize = 30, prefetchDistance = 15, enablePlaceholders = false)
             },
             remoteMediator = PostRemoteMediator(
                 socialApi = socialApi,

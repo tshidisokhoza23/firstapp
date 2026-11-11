@@ -1,0 +1,96 @@
+<div class="merchant-portal-container">
+  <header class="portal-header">
+    <div class="brand">
+      <span class="logo">Kasi Wholesale</span>
+      <h1>Supplier Tender Board</h1>
+    </div>
+    <button class="btn btn-secondary" (click)="fetchRfqs()">Refresh Tenders</button>
+  </header>
+
+  <div *ngIf="successMessage" class="alert alert-success">
+    {{ successMessage }}
+  </div>
+
+  <div *ngIf="errorMessage" class="alert alert-danger">
+    {{ errorMessage }}
+  </div>
+
+  <div *ngIf="loading" class="loading-spinner">
+    <p>Loading active bulk tender requests...</p>
+  </div>
+
+  <div *ngIf="!loading && rfqs.length === 0" class="empty-state">
+    <p>No active tender requests in your region right now.</p>
+  </div>
+
+  <div class="rfq-grid" *ngIf="!loading && rfqs.length > 0">
+    <div class="rfq-card" *ngFor="let rfq of rfqs">
+      <div class="card-header">
+        <span class="region-badge">{{ rfq.target_region }}</span>
+        <span class="expiry-badge">Expires: {{ rfq.expires_at | date:'short' }}</span>
+      </div>
+
+      <div class="card-body">
+        <h3>RFQ #{{ rfq.rfq_id }}</h3>
+        <p class="pref">Fulfillment Preference: <strong>{{ rfq.delivery_preference }}</strong></p>
+
+        <h4>Items Requested:</h4>
+        <ul class="items-list">
+          <li *ngFor="let item of rfq.items_manifest">
+            <span class="item-name">{{ item.name }}</span>
+            <span class="item-qty">{{ item.quantity }} {{ item.unit }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card-footer">
+        <button class="btn btn-primary" (click)="openBidDialog(rfq)">Submit Proforma Bid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit Bid Modal -->
+  <div class="modal-backdrop" *ngIf="selectedRfq">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Submit Quote for RFQ #{{ selectedRfq.rfq_id }}</h2>
+        <button class="close-btn" (click)="closeBidDialog()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Target Region</label>
+          <input type="text" [value]="selectedRfq.target_region" disabled />
+        </div>
+
+        <div class="form-group">
+          <label>Total Quote Price (ZAR R)</label>
+          <input type="number" [(ngModel)]="totalPrice" placeholder="e.g. 18500.00" />
+        </div>
+
+        <div class="form-group">
+          <label>Fulfillment Method</label>
+          <select [(ngModel)]="fulfilmentType">
+            <option value="merchant_delivery">Supplier Delivery to Town/Depot</option>
+            <option value="pickup">Stokvel Self-Pickup at Depot</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Proforma Invoice Link (Cloudflare R2 / PDF)</label>
+          <input type="text" [(ngModel)]="proformaInvoiceUrl" placeholder="https://r2.kasistokvel.co.za/invoices/..." />
+        </div>
+
+        <div class="form-group">
+          <label>Notes & Terms</label>
+          <textarea [(ngModel)]="notes" placeholder="Delivery timeframes, discount conditions..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeBidDialog()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitBid()">Confirm & Submit Tender</button>
+      </div>
+    </div>
+  </div>
+</div>

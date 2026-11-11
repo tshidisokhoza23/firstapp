@@ -1,5 +1,3 @@
-@file:Suppress("DEPRECATION")
-
 package com.tpsk.tj.drive.ui.viewmodel
 
 import dagger.hilt.android.lifecycle.HiltViewModel

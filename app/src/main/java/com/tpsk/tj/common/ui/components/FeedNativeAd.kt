@@ -100,7 +100,16 @@ fun FeedNativeAd(
         }
     }
 
-    if (failed) return
+    if (failed) {
+        // Fallback state or just keep the skeleton to avoid CLS
+        Box(
+            modifier
+                .fillMaxWidth()
+                .height(slotHeight)
+                .background(androidx.compose.ui.graphics.Color.LightGray.copy(alpha = 0.1f))
+        )
+        return
+    }
     Box(
         modifier
             .fillMaxWidth()

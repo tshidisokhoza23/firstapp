@@ -64,10 +64,12 @@ private fun FeedMediaTile(
     onMediaClick: (String) -> Unit,
     badge: String? = null
 ) {
-    val formattedUrl = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl
-    val isVideo = com.tpsk.tj.common.util.MediaUtils.isVideo(rawUrl)
-    val lower = formattedUrl.lowercase()
-    val isAudio = !isVideo && (lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg"))
+    val formattedUrl = remember(rawUrl) { com.tpsk.tj.common.util.MediaUtils.formatUrl(rawUrl) ?: rawUrl }
+    val isVideo = remember(rawUrl) { com.tpsk.tj.common.util.MediaUtils.isVideo(rawUrl) }
+    val isAudio = remember(formattedUrl, isVideo) {
+        val lower = formattedUrl.lowercase()
+        !isVideo && (lower.endsWith(".m4a") || lower.endsWith(".mp3") || lower.endsWith(".aac") || lower.endsWith(".wav") || lower.endsWith(".ogg"))
+    }
     Box(
         modifier = modifier.clickable { onMediaClick(formattedUrl) },
         contentAlignment = Alignment.Center
@@ -135,7 +137,7 @@ fun MediaGrid(
                     val imageRequest = remember(urlString) {
                         ImageRequest.Builder(context)
                             .data(urlString)
-                            .crossfade(true)
+                            .crossfade(false)
                             .build()
                     }
                     Box(
@@ -167,7 +169,7 @@ fun MediaGrid(
                     val imageRequest = remember(urlString, autoplayGifsEnabled) {
                         ImageRequest.Builder(context)
                             .data(urlString)
-                            .crossfade(true)
+                            .crossfade(false)
                             .apply {
                                 if (isGif && !autoplayGifsEnabled) {
                                     setParameter("play_animated", false)
@@ -356,7 +358,7 @@ fun QuotedPostCard(
                         .size(22.dp)
                         .clip(CircleShape)
                         .background(post.authorAvatarColor)
-                        .clickable { onProfileClick(post.authorId.ifBlank { post.authorHandle }) }
+                        .clickable { onProfileClick(post.authorId.orEmpty().ifBlank { post.authorHandle.orEmpty() }) }
                 ) {
                     AsyncImage(
                         model = avatarUrl,
@@ -368,7 +370,7 @@ fun QuotedPostCard(
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = post.authorName.ifBlank { "User" },
+                    text = post.authorName.orEmpty().ifBlank { "User" },
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -385,7 +387,7 @@ fun QuotedPostCard(
                     )
                 }
                 Text(
-                    text = " @${post.authorHandle.ifBlank { "user" }} · ${formatTwitterTime(post.timestamp)}",
+                    text = " @${post.authorHandle.orEmpty().ifBlank { "user" }} · ${formatTwitterTime(post.timestamp.orEmpty())}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

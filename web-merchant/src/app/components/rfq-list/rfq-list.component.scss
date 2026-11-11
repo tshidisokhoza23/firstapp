@@ -1,0 +1,227 @@
+$bg-dark: #0f172a;
+$card-bg: #1e293b;
+$primary-blue: #2563eb;
+$primary-blue-hover: #1d4ed8;
+$text-light: #f8fafc;
+$text-muted: #94a3b8;
+$border-color: #334155;
+
+.merchant-portal-container {
+  min-height: 100vh;
+  background-color: $bg-dark;
+  color: $text-light;
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 2rem;
+
+  .portal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid $border-color;
+    padding-bottom: 1.5rem;
+    margin-bottom: 2rem;
+
+    .brand {
+      .logo {
+        color: $primary-blue;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.875rem;
+        letter-spacing: 0.1em;
+      }
+      h1 {
+        margin: 0.25rem 0 0 0;
+        font-size: 1.75rem;
+      }
+    }
+  }
+
+  .alert {
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    &.alert-success {
+      background-color: #064e3b;
+      color: #6ee7b7;
+    }
+    &.alert-danger {
+      background-color: #7f1d1d;
+      color: #fca5a5;
+    }
+  }
+
+  .rfq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+
+    .rfq-card {
+      background-color: $card-bg;
+      border: 1px solid $border-color;
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+
+        .region-badge {
+          background-color: rgba($primary-blue, 0.2);
+          color: #60a5fa;
+          padding: 0.25rem 0.75rem;
+          border-radius: 9999px;
+          font-weight: 600;
+          font-size: 0.85rem;
+        }
+
+        .expiry-badge {
+          color: $text-muted;
+          font-size: 0.8rem;
+        }
+      }
+
+      .card-body {
+        flex: 1;
+
+        h3 {
+          margin: 0 0 0.5rem 0;
+        }
+
+        .pref {
+          color: $text-muted;
+          font-size: 0.9rem;
+          margin-bottom: 1rem;
+        }
+
+        .items-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+
+          li {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba($border-color, 0.5);
+
+            .item-name {
+              font-weight: 500;
+            }
+            .item-qty {
+              color: #60a5fa;
+            }
+          }
+        }
+      }
+
+      .card-footer {
+        margin-top: 1.5rem;
+      }
+    }
+  }
+
+  .btn {
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s;
+
+    &.btn-primary {
+      background-color: $primary-blue;
+      color: #fff;
+      width: 100%;
+      &:hover {
+        background-color: $primary-blue-hover;
+      }
+    }
+
+    &.btn-secondary {
+      background-color: #334155;
+      color: $text-light;
+      &:hover {
+        background-color: #475569;
+      }
+    }
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    .modal-content {
+      background-color: $card-bg;
+      border: 1px solid $border-color;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      padding: 1.5rem;
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+
+        h2 {
+          margin: 0;
+          font-size: 1.25rem;
+        }
+
+        .close-btn {
+          background: none;
+          border: none;
+          color: $text-muted;
+          font-size: 1.5rem;
+          cursor: pointer;
+        }
+      }
+
+      .modal-body {
+        .form-group {
+          margin-bottom: 1rem;
+
+          label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: $text-muted;
+            font-size: 0.9rem;
+          }
+
+          input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: $bg-dark;
+            border: 1px solid $border-color;
+            border-radius: 6px;
+            color: $text-light;
+            box-sizing: border-border-box;
+
+            &:focus {
+              outline: none;
+              border-color: $primary-blue;
+            }
+          }
+        }
+      }
+
+      .modal-footer {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+      }
+    }
+  }
+}

@@ -10,10 +10,9 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     jacoco
 }
-
 android {
     namespace = "com.tpsk.tj"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.tpsk.tj"

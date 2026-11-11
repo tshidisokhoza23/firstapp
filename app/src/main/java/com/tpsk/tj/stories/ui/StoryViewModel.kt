@@ -1,5 +1,3 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
-
 package com.tpsk.tj.stories.ui
 
 import android.content.Context
@@ -31,6 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @HiltViewModel
 class StoryViewModel @Inject constructor(
     private val repository: StoryRepository,

@@ -9,6 +9,7 @@ lifecycleRuntimeKtx = "2.6.1"
 lifecycleProcess = "2.6.1"
 activityCompose = "1.8.0"
 kotlin = "2.1.0"
+ksp = "2.3.13"
 kotlinxSerialization = "1.6.3"
 composeBom = "2024.10.00"
 mapsCompose = "6.1.2"
@@ -26,8 +27,8 @@ room = "2.8.4"
 work = "2.8.1"
 sqlcipher = "4.16.0"
 sqlite = "2.4.0"
-hilt = "2.60"
-hiltWork = "1.2.0"
+hilt = "2.60.1"
+hiltWork = "1.4.0"
 coroutinesTest = "1.7.3"
 mockk = "1.13.8"
 applovin = "13.6.3"
@@ -83,7 +84,7 @@ paging-runtime = { group = "androidx.paging", name = "paging-runtime", version =
 paging-compose = { group = "androidx.paging", name = "paging-compose", version = "3.3.2" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.2.0" }
+hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltWork" }
 hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" }
 hilt-work-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
@@ -101,7 +102,7 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version = "2.3.7" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }

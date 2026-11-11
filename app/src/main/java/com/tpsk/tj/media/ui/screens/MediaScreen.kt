@@ -133,13 +133,11 @@ fun MediaScreen(
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
     onRequestCreatePost: (replyId: String?, quoteId: String?) -> Unit = { _, _ -> },
-    categories: List<Category> = emptyList(),
     selectedCategoryId: String? = null,
     onCategorySelected: (String?) -> Unit = {},
     selectedQualityMode: String = "balanced",
     onQualityModeSelected: (String) -> Unit = {},
     onContestsClick: () -> Unit = {},
-    onTrendingClick: () -> Unit = {},
     onHashtagNavigate: (String) -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
@@ -348,13 +346,11 @@ fun MediaScreen(
                             onHashtagClick = { tag ->
                                 if (tag.isNotBlank()) onHashtagNavigate(tag)
                             },
-                            categories = categories,
                             selectedCategoryId = selectedCategoryId,
                             onCategorySelected = onCategorySelected,
                             selectedQualityMode = selectedQualityMode,
                             onQualityModeSelected = onQualityModeSelected,
-                            onContestsClick = onContestsClick,
-                            onTrendingClick = onTrendingClick
+                            onContestsClick = onContestsClick
                         )
                     }
                 }
@@ -438,6 +434,64 @@ fun MediaScreen(
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
+
+                    HorizontalDivider(color = Color(0xFF333333), modifier = Modifier.padding(vertical = 4.dp))
+
+                    var qualityExpanded by remember { mutableStateOf(false) }
+                    val qualityOptions = remember {
+                        listOf(
+                            "off" to "Off (default)",
+                            "balanced" to "Balanced",
+                            "high" to "High quality only",
+                            "following" to "Following only",
+                            "topics" to "Topics I follow",
+                            "calm" to "Anti-ragebait filter"
+                        )
+                    }
+                    val currentFilterLabel = qualityOptions.firstOrNull { it.first == selectedQualityMode }?.second ?: "Off (default)"
+
+                    Box {
+                        ListItem(
+                            headlineContent = { Text("Feed & Quality Filter", color = MaterialTheme.colorScheme.onSurface) },
+                            supportingContent = { Text(currentFilterLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Default.Tune,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = if (qualityExpanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            modifier = Modifier.clickable { qualityExpanded = !qualityExpanded },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+
+                        DropdownMenu(
+                            expanded = qualityExpanded,
+                            onDismissRequest = { qualityExpanded = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            qualityOptions.forEach { (key, option) ->
+                                val isChecked = selectedQualityMode == key
+                                DropdownMenuItem(
+                                    text = {
+                                        val label = if (isChecked) "✓ $option" else option
+                                        Text(label, color = if (isChecked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                    },
+                                    onClick = {
+                                        onQualityModeSelected(key)
+                                        qualityExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -601,25 +655,20 @@ fun MainFeedSection(
     onHashtagClick: (String) -> Unit = {},
     autoplayEnabled: Boolean = true,
     autoplayGifsEnabled: Boolean = true,
-    categories: List<Category> = emptyList(),
     selectedCategoryId: String? = null,
     onCategorySelected: (String?) -> Unit = {},
     selectedQualityMode: String = "balanced",
     onQualityModeSelected: (String) -> Unit = {},
     onContestsClick: () -> Unit = {},
-    onTrendingClick: () -> Unit = {},
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         // Category Chips Bar is ALWAYS rendered at the top of the feed
         CategoryChipBar(
-            categories = categories,
             selectedCategoryId = selectedCategoryId,
             onCategorySelected = onCategorySelected,
-            selectedQualityMode = selectedQualityMode,
-            onQualityModeSelected = onQualityModeSelected,
-            onContestsClick = onContestsClick,
-            onTrendingClick = onTrendingClick
+            onTrendingClick = { onHashtagClick("trending") },
+            onContestsClick = onContestsClick
         )
 
         Box(modifier = Modifier.weight(1f)) {
@@ -721,43 +770,26 @@ fun MainFeedSection(
                             contentPadding = PaddingValues(bottom = 112.dp + bottomPadding)
                         ) {
 
-            val organicCount = posts.itemCount
-            val postsPerAd = 5
-            val adSlots = if (organicCount >= postsPerAd) organicCount / postsPerAd else 0
-            val rowCount = organicCount + adSlots
             items(
-                count = rowCount,
-                key = { row ->
-                    val adsBefore = row / (postsPerAd + 1)
-                    val isAd = adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots
-                    if (isAd) -row else { // Use negative row index as unique key for ads to avoid allocation
-                        val postIndex = row - adsBefore
-                        if (postIndex in 0 until posts.itemCount) {
-                            try { posts.peek(postIndex)?.id ?: row } catch (e: Exception) { row }
-                        } else row
-                    }
+                count = posts.itemCount,
+                key = { index ->
+                    try { posts.peek(index)?.id ?: index } catch (e: Exception) { index }
                 },
-                contentType = { row ->
-                    val adsBefore = row / (postsPerAd + 1)
-                    if (adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots) "ad" else "post"
+                contentType = { index ->
+                    val post = try { posts.peek(index) } catch (e: Exception) { null }
+                    if (post?.type == com.tpsk.tj.media.model.PostType.NATIVE_AD) "ad" else "post"
                 }
-            ) { row ->
-                val adsBefore = row / (postsPerAd + 1)
-                val isAd = adSlots > 0 && row % (postsPerAd + 1) == postsPerAd && adsBefore < adSlots
-                if (isAd) {
+            ) { index ->
+                val post = try { posts[index] } catch (e: Exception) { null }
+                if (post == null) {
+                    PostItemShimmer(isScrollInProgress = listState.isScrollInProgress)
+                } else if (post.type == com.tpsk.tj.media.model.PostType.NATIVE_AD) {
                     com.tpsk.tj.common.ui.components.FeedNativeAd(
                         adUnitId = AdUnitConfig.NATIVE_POSTS_ID,
-                        slotKey = "feed-ad-$adsBefore",
+                        slotKey = post.id,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 } else {
-                    val postIndex = row - adsBefore
-                    val post = if (postIndex in 0 until posts.itemCount) {
-                        try { posts[postIndex] } catch (e: Exception) { null }
-                    } else null
-                    if (post == null) {
-                        PostItemShimmer()
-                    } else {
                         val isPlaying = activePostId != null && activePostId == post.id
                         val isOwn = remember(post.authorId, post.authorHandle, ownProfileId, ownProfileHandle) {
                             post.authorId == ownProfileId || (ownProfileHandle.isNotEmpty() && post.authorHandle == ownProfileHandle)
@@ -789,7 +821,7 @@ fun MainFeedSection(
                             onHashtagClick = onHashtagClick
                         )
                     }
-                }
+                // } -> Removing the extra bracket
             }
 
             if (posts.loadState.append is LoadState.Loading) {

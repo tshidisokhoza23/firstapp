@@ -10,7 +10,9 @@ data class User(
     @SerializedName("phone_number") val phoneNumber: String = "",
     @SerializedName("created_at") val createdAt: String = "",
     @SerializedName("avatar_url") val avatarUrl: String? = null,
+    @SerializedName("blurred_avatar_url") val blurredAvatarUrl: String? = null,
     @SerializedName("banner_url") val bannerUrl: String? = null,
+    @SerializedName("blurred_banner_url") val blurredBannerUrl: String? = null,
     @SerializedName("bio") val bio: String? = null,
     @SerializedName("location") val location: String? = null,
     @SerializedName("is_verified") val isVerified: Boolean = false,
@@ -41,6 +43,7 @@ data class User(
     @SerializedName("wallet_balance") val walletBalance: Double = 0.0,
 
     // Job Profile Fields
+    @SerializedName("boosted_until") val boostedUntil: String? = null,
     @SerializedName("job_full_name") val jobFullName: String? = null,
     @SerializedName("job_email") val jobEmail: String? = null,
     @SerializedName("job_phone") val jobPhone: String? = null,

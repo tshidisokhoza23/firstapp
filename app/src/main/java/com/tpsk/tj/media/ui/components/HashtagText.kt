@@ -46,7 +46,9 @@ object ContestTags {
 
 fun hashtagRoute(tag: String): String {
     val clean = tag.removePrefix("#").trim()
-    return if (ContestTags.isContest(clean)) {
+    return if (clean.equals("trending", ignoreCase = true)) {
+        Screen.TrendingFeed.route
+    } else if (ContestTags.isContest(clean)) {
         Screen.ContestFeed.createRoute(clean)
     } else {
         Screen.HashtagFeed.createRoute(clean)
@@ -55,7 +57,7 @@ fun hashtagRoute(tag: String): String {
 
 @Composable
 fun HashtagText(
-    text: String,
+    text: String?,
     color: Color,
     fontSize: TextUnit,
     modifier: Modifier = Modifier,
@@ -63,11 +65,12 @@ fun HashtagText(
     lineHeight: TextUnit = TextUnit.Unspecified,
     onHashtagClick: ((String) -> Unit)? = null
 ) {
-    val annotated = remember(text, color) {
+    val safeText = text.orEmpty()
+    val annotated = remember(safeText, color) {
         buildAnnotatedString {
             var last = 0
-            for (match in hashtagRegex.findAll(text)) {
-                append(text.substring(last, match.range.first))
+            for (match in hashtagRegex.findAll(safeText)) {
+                append(safeText.substring(last, match.range.first))
                 pushStringAnnotation("hashtag", match.value.removePrefix("#"))
                 pushStyle(SpanStyle(color = Color(0xFF1D9BF0), fontWeight = FontWeight.Bold))
                 append(match.value)
@@ -75,7 +78,7 @@ fun HashtagText(
                 pop()
                 last = match.range.last + 1
             }
-            append(text.substring(last))
+            append(safeText.substring(last))
         }
     }
     ClickableText(

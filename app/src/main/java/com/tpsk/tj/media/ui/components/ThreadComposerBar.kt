@@ -22,8 +22,8 @@ fun ThreadComposerBar(
     var text by remember { mutableStateOf("") }
 
     Surface(
-        tonalElevation = 3.dp,
-        shadowElevation = 8.dp,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp,
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.background
     ) {

@@ -37,13 +37,12 @@ fun aiRepository(context: Context): AiRepository {
 
 @Singleton
 class AiRepository @Inject constructor(
-    private val aiApi: AiApi?
+    private val aiApi: AiApi
 ) {
     suspend fun runAiAssist(action: String, text: String, tone: String = "Casual"): Resource<AiAssistResponse> {
         return withContext(Dispatchers.IO) {
             try {
-                val api = aiApi ?: return@withContext Resource.Error("AI is not connected")
-                val response = api.runAiAssist(AiAssistRequest(action, text, tone))
+                val response = aiApi.runAiAssist(AiAssistRequest(action, text, tone))
                 val body = response.body()
                 if (response.isSuccessful && body != null) {
                     Resource.Success(body)
@@ -59,8 +58,7 @@ class AiRepository @Inject constructor(
     suspend fun getSmartReplies(postId: String, postContent: String): Resource<List<String>> {
         return withContext(Dispatchers.IO) {
             try {
-                val api = aiApi ?: return@withContext Resource.Error("AI is not connected")
-                val response = api.getSmartReplies(postId)
+                val response = aiApi.getSmartReplies(postId)
                 val body = response.body()
                 if (response.isSuccessful && body != null) {
                     Resource.Success(body.suggestions)
@@ -84,9 +82,8 @@ class AiRepository @Inject constructor(
     ): Resource<ArtistHelperResponse> {
         return withContext(Dispatchers.IO) {
             try {
-                val api = aiApi ?: return@withContext Resource.Error("AI is not connected")
                 val request = ArtistHelperRequest(taskType, title, currentStage, theme, medium, price, story)
-                val response = api.runArtistHelper(request)
+                val response = aiApi.runArtistHelper(request)
                 val body = response.body()
                 if (response.isSuccessful && body != null) {
                     Resource.Success(body)

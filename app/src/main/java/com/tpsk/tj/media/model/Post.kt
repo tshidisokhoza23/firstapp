@@ -14,19 +14,32 @@ enum class PostType {
     JOB
 }
 
+private fun formatCountStatic(count: Long): String {
+    val nonNegative = if (count < 0) 0L else count
+    return when {
+        nonNegative >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", nonNegative / 1_000_000f)
+        nonNegative >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", nonNegative / 1_000f)
+        else -> nonNegative.toString()
+    }
+}
+
+private fun formatCountLabel(prefix: String, count: Long): String {
+    return if (count > 0) "$prefix ${formatCountStatic(count)}" else "$prefix 0"
+}
+
 data class Post(
-    val id: String,
+    val id: String = "",
     val authorId: String = "",
-    val authorName: String,
-    val authorHandle: String,
+    val authorName: String = "",
+    val authorHandle: String = "",
     val authorAvatarUrl: String? = null,
-    val authorAvatarColor: Color,
+    val authorAvatarColor: Color = Color(0xFF3A4B57),
     val isVerifiedAuthor: Boolean = false,
-    val content: String,
+    val content: String = "",
     val mediaUrls: List<String> = emptyList(),
     val mediaType: String? = null,   // "image", "video", "gif"
     val altText: String? = null,
-    val timestamp: String,
+    val timestamp: String = "",
     val likes: Long = 0,
     val repliesCount: Long = 0,
     val repostCount: Long = 0,
@@ -66,45 +79,27 @@ data class Post(
     val aiAssisted: Boolean = false,
     val isContest: Boolean = false,
     val contestVotes: Int = 0,
-    val collaborators: List<String> = emptyList()
-) {
-    val formattedReplies: String get() = if (repliesCount > 0) "Reply ${formatCount(repliesCount)}" else "Reply 0"
-    val formattedReposts: String get() = if (repostCount > 0) "Repost ${formatCount(repostCount)}" else "Repost 0"
-    val formattedLikes: String get() = if (likes > 0) "Like ${formatCount(likes)}" else "Like"
-    val formattedViews: String get() = "Views ${formatCount(views)}"
-    val formattedShares: String get() = "Share ${formatCount(shares)}"
-    val formattedShortViews: String get() = formatCount(views)
-    val formattedQuotes: String get() = if (isBookmarked) "Saved ${formatCount(quoteCount)}" else "Save ${formatCount(quoteCount)}"
-    val formattedTimestamp: String get() = com.tpsk.tj.common.util.formatTwitterTime(timestamp)
-    val formattedVideoUrl: String? get() {
-        return if (mediaUrls.isNotEmpty() && com.tpsk.tj.common.util.MediaUtils.isVideo(mediaUrls[0])) {
-            com.tpsk.tj.common.util.MediaUtils.formatUrl(mediaUrls[0])
-        } else null
-    }
-    val formattedThumbnailUrl: String? get() {
-        return if (!thumbnailUrl.isNullOrBlank()) {
-            com.tpsk.tj.common.util.MediaUtils.formatUrl(thumbnailUrl)
-        } else formattedVideoUrl
-    }
-    val formattedAvatarUrl: String? get() {
-        return com.tpsk.tj.common.util.MediaUtils.formatUrl(authorAvatarUrl)
-    }
+    val collaborators: List<String> = emptyList(),
 
-    private fun formatCount(count: Long): String {
-        val nonNegative = if (count < 0) 0L else count
-        return when {
-            nonNegative >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", nonNegative / 1_000_000f)
-            nonNegative >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", nonNegative / 1_000f)
-            else -> nonNegative.toString()
-        }
-    }
-}
+    // Pre-calculated stored fields (computed ONCE when constructed in ViewModel/Repository thread)
+    val formattedReplies: String = formatCountLabel("Reply", repliesCount),
+    val formattedReposts: String = formatCountLabel("Repost", repostCount),
+    val formattedLikes: String = if (likes > 0) "Like ${formatCountStatic(likes)}" else "Like",
+    val formattedViews: String = "Views ${formatCountStatic(views)}",
+    val formattedShares: String = "Share ${formatCountStatic(shares)}",
+    val formattedShortViews: String = formatCountStatic(views),
+    val formattedQuotes: String = if (isBookmarked) "Saved ${formatCountStatic(quoteCount)}" else "Save ${formatCountStatic(quoteCount)}",
+    val formattedTimestamp: String = com.tpsk.tj.common.util.formatTwitterTime(timestamp.orEmpty()),
+    val formattedVideoUrl: String? = if (!mediaUrls.isNullOrEmpty() && com.tpsk.tj.common.util.MediaUtils.isVideo(mediaUrls.firstOrNull())) com.tpsk.tj.common.util.MediaUtils.formatUrl(mediaUrls.firstOrNull()) else null,
+    val formattedThumbnailUrl: String? = if (!thumbnailUrl.isNullOrBlank()) com.tpsk.tj.common.util.MediaUtils.formatUrl(thumbnailUrl) else (if (!mediaUrls.isNullOrEmpty() && com.tpsk.tj.common.util.MediaUtils.isVideo(mediaUrls.firstOrNull())) com.tpsk.tj.common.util.MediaUtils.formatUrl(mediaUrls.firstOrNull()) else null),
+    val formattedAvatarUrl: String? = com.tpsk.tj.common.util.MediaUtils.formatUrl(authorAvatarUrl)
+)
 
 fun Post.isOwnedBy(userId: String?, userHandle: String? = null): Boolean {
     val cleanUserId = userId?.trim().orEmpty()
     val cleanUserHandle = userHandle?.trim().orEmpty()
-    val authorId = this.authorId.trim()
-    val authorHandle = this.authorHandle.trim()
+    val authorId = this.authorId.orEmpty().trim()
+    val authorHandle = this.authorHandle.orEmpty().trim()
 
     val matchId = cleanUserId.isNotEmpty() && authorId.isNotEmpty() && cleanUserId == authorId
     val matchHandle = cleanUserHandle.isNotEmpty() && authorHandle.isNotEmpty() && cleanUserHandle.equals(authorHandle, ignoreCase = true)
@@ -113,13 +108,13 @@ fun Post.isOwnedBy(userId: String?, userHandle: String? = null): Boolean {
 }
 
 data class PostPoll(
-    val expiresAt: String,
-    val options: List<PollOption>,
+    val expiresAt: String = "",
+    val options: List<PollOption> = emptyList(),
     val userVote: String? = null
 )
 
 data class PollOption(
-    val id: String,
-    val text: String,
-    val voteCount: Long
+    val id: String = "",
+    val text: String = "",
+    val voteCount: Long = 0
 )

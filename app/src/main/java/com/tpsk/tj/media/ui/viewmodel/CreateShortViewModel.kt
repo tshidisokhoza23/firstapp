@@ -1,5 +1,3 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
-
 package com.tpsk.tj.media.ui.viewmodel
 
 import android.content.Context
@@ -32,6 +30,7 @@ sealed interface PostShortUiState {
     data class Error(val message: String) : PostShortUiState
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @HiltViewModel
 class CreateShortViewModel @Inject constructor(
     private val socialRepository: SocialRepository,

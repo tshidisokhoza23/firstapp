@@ -20,12 +20,21 @@ fun ShimmerEffect(
     widthOfShadowBrush: Int = 500,
     angleOfAxisY: Float = 270f,
     durationMillis: Int = 1000,
+    isScrollInProgress: Boolean = false
 ) {
     val shimmerColors = listOf(
         Color.White.copy(alpha = 0.05f),
         Color.White.copy(alpha = 0.15f),
         Color.White.copy(alpha = 0.05f),
     )
+
+    if (isScrollInProgress) {
+        Box(
+            modifier = modifier
+                .background(Color.White.copy(alpha = 0.05f))
+        )
+        return
+    }
 
     val transition = rememberInfiniteTransition(label = "shimmer")
     val translateAnimation = transition.animateFloat(
@@ -86,7 +95,7 @@ fun ChatItemShimmer() {
 }
 
 @Composable
-fun PostItemShimmer() {
+fun PostItemShimmer(isScrollInProgress: Boolean = false) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -94,6 +103,7 @@ fun PostItemShimmer() {
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             ShimmerEffect(
+                isScrollInProgress = isScrollInProgress,
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
@@ -101,6 +111,7 @@ fun PostItemShimmer() {
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 ShimmerEffect(
+                    isScrollInProgress = isScrollInProgress,
                     modifier = Modifier
                         .fillMaxWidth(0.3f)
                         .height(14.dp)
@@ -108,6 +119,7 @@ fun PostItemShimmer() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 ShimmerEffect(
+                    isScrollInProgress = isScrollInProgress,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(60.dp)

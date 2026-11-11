@@ -135,11 +135,11 @@ fun PostItem(
             }
             PostDisplayMode.FEED -> {
                 val currentUser = LocalCurrentUser.current
-                val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.isBlank()
+                val isSimpleRepost = post.repostOfId != null && post.originalPost != null && post.content.orEmpty().isBlank()
                 val displayPost = if (isSimpleRepost) post.originalPost!! else post
                 val myUserId = currentUser?.id.orEmpty()
                 val myUsername = currentUser?.username.orEmpty()
-                val isPostMine = isOwnPost || (myUserId.isNotEmpty() && displayPost.authorId == myUserId) || (myUsername.isNotEmpty() && displayPost.authorHandle.equals(myUsername, ignoreCase = true))
+                val isPostMine = isOwnPost || (myUserId.isNotEmpty() && displayPost.authorId.orEmpty() == myUserId) || (myUsername.isNotEmpty() && displayPost.authorHandle.orEmpty().equals(myUsername, ignoreCase = true))
                 
                 VerticalFeedPostCard(
                     post = post,
@@ -186,12 +186,15 @@ fun ShortGridItem(post: Post, onClick: () -> Unit) {
     val imageRequest = remember(rawModel) {
         val model = com.tpsk.tj.common.util.MediaUtils.formatUrl(rawModel)
         if (model != null) {
-            coil.request.ImageRequest.Builder(context)
+            val builder = coil.request.ImageRequest.Builder(context)
                 .data(model)
                 .decoderFactory(coil.decode.VideoFrameDecoder.Factory())
                 .videoFrameMillis(1000)
-                .crossfade(true)
-                .build()
+                .crossfade(false)
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                builder.bitmapConfig(android.graphics.Bitmap.Config.HARDWARE)
+            }
+            builder.build()
         } else {
             null
         }
@@ -335,7 +338,7 @@ fun VerticalFeedPostCard(
             val contentPadding = if (showThreadLine) 0.dp else 12.dp
 
             // Repost Header (Only shown for simple reposts without custom caption)
-            if (post.repostOfId != null && post.originalPost != null && post.content.isBlank()) {
+            if (post.repostOfId != null && post.originalPost != null && post.content.orEmpty().isBlank()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -350,7 +353,7 @@ fun VerticalFeedPostCard(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "${post.authorName} reposted",
+                        text = "${post.authorName.orEmpty()} reposted",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -365,10 +368,12 @@ fun VerticalFeedPostCard(
                     .padding(top = 8.dp, bottom = 4.dp, start = contentPadding),
                 verticalAlignment = Alignment.Top
             ) {
-                val targetProfileId = displayPost.authorId.ifBlank { displayPost.authorHandle }.ifBlank { post.authorId }.ifBlank { post.authorHandle }
+                val targetProfileId = remember(displayPost.authorId, displayPost.authorHandle, post.authorId, post.authorHandle) {
+                    displayPost.authorId.orEmpty().ifBlank { displayPost.authorHandle.orEmpty() }.ifBlank { post.authorId.orEmpty() }.ifBlank { post.authorHandle.orEmpty() }
+                }
 
                 if (!showThreadLine) {
-                    val avatarUrl = displayPost.formattedAvatarUrl
+                    val avatarUrl = remember(displayPost.authorAvatarUrl) { displayPost.formattedAvatarUrl }
                     val avatarPainter = remember(displayPost.authorAvatarColor) {
                         androidx.compose.ui.graphics.painter.ColorPainter(displayPost.authorAvatarColor)
                     }
@@ -390,7 +395,7 @@ fun VerticalFeedPostCard(
                     Spacer(modifier = Modifier.width(10.dp))
                 }
 
-                val ts = displayPost.formattedTimestamp
+                val ts = remember(displayPost.timestamp) { displayPost.formattedTimestamp.orEmpty() }
 
                 Column(
                     modifier = Modifier
@@ -402,7 +407,7 @@ fun VerticalFeedPostCard(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = displayPost.authorName.ifBlank { "User" },
+                            text = displayPost.authorName.orEmpty().ifBlank { "User" },
                             color = MaterialTheme.colorScheme.onSurface,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
@@ -418,7 +423,7 @@ fun VerticalFeedPostCard(
                             Text(" · $ts", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 1)
                         }
                     }
-                    Text("@${displayPost.authorHandle.ifBlank { "user" }}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("@${displayPost.authorHandle.orEmpty().ifBlank { "user" }}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
 
                 Spacer(modifier = Modifier.width(4.dp))
@@ -459,13 +464,13 @@ fun VerticalFeedPostCard(
                 }
             }
 
-            if (displayPost.mood.isNotBlank() || displayPost.aiAssisted || displayPost.collaborators.isNotEmpty()) {
+            if (displayPost.mood.orEmpty().isNotBlank() || displayPost.aiAssisted || displayPost.collaborators.isNotEmpty()) {
                 Row(
                     modifier = Modifier.padding(start = contentPadding, top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (displayPost.mood.isNotBlank()) {
-                        Text(displayPost.mood, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    if (displayPost.mood.orEmpty().isNotBlank()) {
+                        Text(displayPost.mood.orEmpty(), color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
                     if (displayPost.aiAssisted) {
                         Text("Improved with AI", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
@@ -477,21 +482,21 @@ fun VerticalFeedPostCard(
             }
 
             // 2. MIDDLE ROW: CAPTION
-            if (displayPost.content.isNotBlank()) {
+            if (displayPost.content.orEmpty().isNotBlank()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = contentPadding, top = 4.dp, bottom = 4.dp)
                 ) {
                     HashtagText(
-                        text = displayPost.content,
+                        text = displayPost.content.orEmpty(),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 15.sp,
                         lineHeight = 20.sp,
                         maxLines = if (isExpanded) Int.MAX_VALUE else 5,
                         onHashtagClick = onHashtagClick
                     )
-                    if (!isExpanded && displayPost.content.length > 200) {
+                    if (!isExpanded && displayPost.content.orEmpty().length > 200) {
                         Text("Show More", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp).clickable { isExpanded = true } )
                     }
                 }
@@ -537,10 +542,13 @@ fun VerticalFeedPostCard(
                         } else {
                             val context = androidx.compose.ui.platform.LocalContext.current
                             val thumbRequest = remember(thumbUrl) {
-                                coil.request.ImageRequest.Builder(context)
+                                val builder = coil.request.ImageRequest.Builder(context)
                                     .data(thumbUrl)
-                                    .crossfade(true)
-                                    .build()
+                                    .crossfade(false) // Disable crossfade for smoother scroll
+                                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                                    builder.bitmapConfig(android.graphics.Bitmap.Config.HARDWARE)
+                                }
+                                builder.build()
                             }
                             AsyncImage(
                                 model = thumbRequest,
@@ -634,9 +642,10 @@ fun VerticalFeedPostCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                             ) {
                                 Text(
                                     text = "💼 Job",
@@ -647,9 +656,10 @@ fun VerticalFeedPostCard(
                                 )
                             }
                             if (displayPost.category.isNotBlank() && displayPost.category != "general") {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                                 ) {
                                     Text(
                                         text = displayPost.category,
@@ -661,9 +671,10 @@ fun VerticalFeedPostCard(
                                 }
                             }
                             if (!displayPost.location.isNullOrBlank()) {
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
                                 ) {
                                     Text(
                                         text = "📍 ${displayPost.location}",
@@ -700,15 +711,16 @@ fun VerticalFeedPostCard(
             }
 
             // 4. BOTTOM ROW: INTERACTIONS (CLEAN BORDERLESS ACTIONS)
-            val replyText = displayPost.formattedReplies
-            val repostText = post.formattedReposts
-            val likeText = post.formattedLikes
-            val viewsText = post.formattedViews
-            val saveText = post.formattedQuotes
-            val shareText = post.formattedShares
+            val replyText = remember(displayPost.repliesCount) { displayPost.formattedReplies }
+            val repostText = remember(post.repostCount) { post.formattedReposts }
+            val likeText = remember(post.likes) { post.formattedLikes }
+            val viewsText = remember(post.views) { post.formattedViews }
+            val saveText = remember(post.quoteCount, post.isBookmarked) { post.formattedQuotes }
+            val shareText = remember(post.shares) { post.formattedShares }
 
             val transparentBg = Color.Transparent
             val actionTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+            val actionScrollState = remember(post.id) { androidx.compose.foundation.ScrollState(0) }
 
             Surface(
                 modifier = Modifier
@@ -720,7 +732,7 @@ fun VerticalFeedPostCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp, horizontal = contentPadding)
-                        .horizontalScroll(rememberScrollState()),
+                        .horizontalScroll(actionScrollState),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -811,7 +823,7 @@ fun VerticalFeedPostCard(
 
 @Composable
 private fun PostPill(
-    text: String,
+    text: String?,
     icon: ImageVector? = null,
     onClick: () -> Unit,
     isSelected: Boolean = false,
@@ -836,7 +848,7 @@ private fun PostPill(
             Spacer(modifier = Modifier.width(4.dp))
         }
         Text(
-            text = text,
+            text = text.orEmpty(),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             color = if (isSelected && selectedColor != Color.Unspecified) selectedColor else textColor,

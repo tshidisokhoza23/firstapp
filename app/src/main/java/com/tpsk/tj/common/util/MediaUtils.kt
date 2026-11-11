@@ -169,50 +169,53 @@ object MediaUtils {
         return videoUrl.dropLast(ext.length + 1 + query.length) + "webp" + query
     }
 
+    private val formattedUrlCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     fun formatUrl(url: String?): String? {
         if (url == null || url.isEmpty()) return null
-        
-        val base = com.tpsk.tj.common.data.network.NetworkConstants.BASE_URL
-        val baseUri = try { android.net.Uri.parse(base) } catch (e: Exception) { null }
-        val targetHost = baseUri?.host ?: "192.168.100.7"
-        
-        var cleanBase = base
-        if (cleanBase.endsWith("/api/v1/")) {
-            cleanBase = cleanBase.substring(0, cleanBase.length - 8)
-        } else if (cleanBase.endsWith("/api/v1")) {
-            cleanBase = cleanBase.substring(0, cleanBase.length - 7)
-        } else if (cleanBase.endsWith("/")) {
-            cleanBase = cleanBase.substring(0, cleanBase.length - 1)
-        }
-        
-        // Handle absolute URLs
-        if (url.startsWith("http:") || url.startsWith("https:") || url.startsWith("data:") || url.startsWith("file:") || url.startsWith("local:") || url.startsWith("content:")) {
-            var formatted = url
+        return formattedUrlCache.getOrPut(url) {
+            val base = com.tpsk.tj.common.data.network.NetworkConstants.BASE_URL
+            val baseUri = try { android.net.Uri.parse(base) } catch (e: Exception) { null }
+            val targetHost = baseUri?.host ?: "192.168.100.7"
             
-            // Fix localhost/127.0.0.1 -> real base or targetHost
-            if (formatted.contains("://localhost") || formatted.contains("://127.0.0.1")) {
-                formatted = formatted
-                    .replace("http://127.0.0.1:8000", cleanBase)
-                    .replace("http://localhost:8000", cleanBase)
-                    .replace("http://127.0.0.1", cleanBase)
-                    .replace("http://localhost", cleanBase)
-                    .replace("127.0.0.1", targetHost)
-                    .replace("localhost", targetHost)
+            var cleanBase = base
+            if (cleanBase.endsWith("/api/v1/")) {
+                cleanBase = cleanBase.substring(0, cleanBase.length - 8)
+            } else if (cleanBase.endsWith("/api/v1")) {
+                cleanBase = cleanBase.substring(0, cleanBase.length - 7)
+            } else if (cleanBase.endsWith("/")) {
+                cleanBase = cleanBase.substring(0, cleanBase.length - 1)
             }
-            if (formatted.startsWith("http://") && cleanBase.startsWith("https://")) {
-                formatted = formatted.replace("http://", "https://")
+            
+            // Handle absolute URLs
+            if (url.startsWith("http:") || url.startsWith("https:") || url.startsWith("data:") || url.startsWith("file:") || url.startsWith("local:") || url.startsWith("content:")) {
+                var formatted = url
+                
+                // Fix localhost/127.0.0.1 -> real base or targetHost
+                if (formatted.contains("://localhost") || formatted.contains("://127.0.0.1")) {
+                    formatted = formatted
+                        .replace("http://127.0.0.1:8000", cleanBase)
+                        .replace("http://localhost:8000", cleanBase)
+                        .replace("http://127.0.0.1", cleanBase)
+                        .replace("http://localhost", cleanBase)
+                        .replace("127.0.0.1", targetHost)
+                        .replace("localhost", targetHost)
+                }
+                if (formatted.startsWith("http://") && cleanBase.startsWith("https://")) {
+                    formatted = formatted.replace("http://", "https://")
+                }
+                formatted
+            } else {
+                var cleanUrl = if (url.startsWith("/")) url.substring(1) else url
+                
+                // Ensure relative paths start with uploads/ if they don't already
+                if (!cleanUrl.startsWith("uploads/")) {
+                    cleanUrl = "uploads/$cleanUrl"
+                }
+                
+                "$cleanBase/$cleanUrl"
             }
-            return formatted
         }
-        
-        var cleanUrl = if (url.startsWith("/")) url.substring(1) else url
-        
-        // Ensure relative paths start with uploads/ if they don't already
-        if (!cleanUrl.startsWith("uploads/")) {
-            cleanUrl = "uploads/$cleanUrl"
-        }
-        
-        return "$cleanBase/$cleanUrl"
     }
 
     fun isVideo(url: String?): Boolean {

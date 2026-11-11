@@ -115,6 +115,12 @@ class PlayCoinBilling @Inject constructor(
     }
 
     companion object {
-        val PRODUCT_IDS = listOf("tj_coins_100", "tj_coins_500", "tj_coins_1000")
+        val PRODUCT_IDS = listOf(
+            "coins_pack_10", 
+            "coins_pack_20", 
+            "coins_pack_30", 
+            "coins_pack_50", 
+            "coins_pack_70"
+        )
     }
 }

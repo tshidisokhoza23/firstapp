@@ -91,14 +91,14 @@ fun MingleNotificationScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No Friends Activity Yet",
+                        text = "No Activity Yet",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "When people like or match with your Friends profile, they will appear right here.",
+                        text = "Who Liked You (Blurred Reveals) and Gifts & Requests (Pending Intros) will appear here when you get noticed.",
                         textAlign = TextAlign.Center,
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
