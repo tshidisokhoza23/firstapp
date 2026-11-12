@@ -220,7 +220,7 @@ fun ChatsListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(1f),
-                color = Color.Transparent,
+                color = MaterialTheme.colorScheme.background,
                 tonalElevation = 0.dp
             ) {
                 Column(

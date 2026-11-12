@@ -53,38 +53,17 @@ fun MembersListScreen(
         }
     }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onCreateMembershipClick,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = CircleShape,
-                modifier = Modifier.padding(bottom = bottomPadding + 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = if (isExpanded) 16.dp else 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create Group")
-                    AnimatedVisibility(visible = isExpanded) {
-                        Row {
-                            Spacer(Modifier.width(6.dp))
-                            Text("Start Group", fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(bottom = bottomPadding + 88.dp),
+            contentPadding = PaddingValues(top = 4.dp, bottom = bottomPadding + 96.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
@@ -98,6 +77,29 @@ fun MembersListScreen(
             }
             items(memberships, key = { it.id }) { item ->
                 MembershipCard(membership = item, onClick = { onMembershipClick(item) })
+            }
+        }
+
+        FloatingActionButton(
+            onClick = onCreateMembershipClick,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            shape = CircleShape,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = bottomPadding + 16.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = if (isExpanded) 16.dp else 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Create Group")
+                AnimatedVisibility(visible = isExpanded) {
+                    Row {
+                        Spacer(Modifier.width(6.dp))
+                        Text("Start Group", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
     }
