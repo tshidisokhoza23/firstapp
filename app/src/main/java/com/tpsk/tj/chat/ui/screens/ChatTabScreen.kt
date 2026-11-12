@@ -719,7 +719,11 @@ fun ChatsListScreen(
                             var subscribedSuccessItem by remember { mutableStateOf<MembershipItem?>(null) }
                             val activity = context as? android.app.Activity
 
-                            val memberGroups = remember {
+                            val currentCreatorHandle = remember(currentUser) {
+                                currentUser?.username?.ifBlank { currentUser?.displayName }?.ifBlank { "tj_official" } ?: "tj_official"
+                            }
+
+                            val memberGroups = remember(currentCreatorHandle) {
                                 listOf(
                                     MembershipItem(
                                         id = "free_community_group",
@@ -730,8 +734,8 @@ fun ChatsListScreen(
                                         memberCount = 1420,
                                         sku = null,
                                         isSubscribed = true,
-                                        creatorHandle = "firstapp",
-                                        activityText = "Active 5m ago"
+                                        creatorHandle = "tj_official",
+                                        activityText = "5m ago"
                                     ),
                                     MembershipItem(
                                         id = "vip_creators_tier1",
@@ -742,8 +746,8 @@ fun ChatsListScreen(
                                         memberCount = 185,
                                         sku = "member_sub_50",
                                         isSubscribed = false,
-                                        creatorHandle = "alex_creator",
-                                        activityText = "Active 15m ago"
+                                        creatorHandle = currentCreatorHandle,
+                                        activityText = "15m ago"
                                     ),
                                     MembershipItem(
                                         id = "pro_traders_tier2",
@@ -754,8 +758,8 @@ fun ChatsListScreen(
                                         memberCount = 92,
                                         sku = "member_sub_90",
                                         isSubscribed = false,
-                                        creatorHandle = "pro_trader",
-                                        activityText = "Active 1h ago"
+                                        creatorHandle = "trader_desk",
+                                        activityText = "1h ago"
                                     ),
                                     MembershipItem(
                                         id = "executive_mastermind_tier3",
@@ -766,8 +770,8 @@ fun ChatsListScreen(
                                         memberCount = 38,
                                         sku = "member_sub_170",
                                         isSubscribed = false,
-                                        creatorHandle = "executive_desk",
-                                        activityText = "Active 2h ago"
+                                        creatorHandle = "exec_analysis",
+                                        activityText = "2h ago"
                                     ),
                                     MembershipItem(
                                         id = "mastermind_tier4",
@@ -778,8 +782,8 @@ fun ChatsListScreen(
                                         memberCount = 24,
                                         sku = "member_sub_350",
                                         isSubscribed = false,
-                                        creatorHandle = "semi_pro",
-                                        activityText = "Active 3h ago"
+                                        creatorHandle = "mastermind_lead",
+                                        activityText = "3h ago"
                                     ),
                                     MembershipItem(
                                         id = "sovereign_advisory_tier9",
@@ -790,8 +794,8 @@ fun ChatsListScreen(
                                         memberCount = 12,
                                         sku = "member_sub_18000",
                                         isSubscribed = false,
-                                        creatorHandle = "sovereign_vip",
-                                        activityText = "Active 1d ago"
+                                        creatorHandle = "sovereign_desk",
+                                        activityText = "1d ago"
                                     )
                                 )
                             }

@@ -35,7 +35,7 @@ data class MembershipItem(
     val sku: String?,
     val isSubscribed: Boolean,
     val creatorHandle: String = "creator",
-    val activityText: String = "Active 1h ago"
+    val activityText: String = "1h ago"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,7 +84,7 @@ fun MembersListScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(bottom = bottomPadding + 96.dp),
+            contentPadding = PaddingValues(bottom = bottomPadding + 88.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
@@ -93,7 +93,7 @@ fun MembersListScreen(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                    modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
                 )
             }
             items(memberships, key = { it.id }) { item ->
@@ -113,67 +113,45 @@ fun MembershipCard(membership: MembershipItem, onClick: () -> Unit) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            // Group Avatar
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
+            // Top Row: Avatar + Title (Full width weight 1f) + Price Pill Top-End
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Group,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Group,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
 
-            Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
 
-            // Main Info Column
-            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = membership.title,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    fontSize = 15.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "by @${membership.creatorHandle}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(Modifier.height(2.dp))
-                val formattedMembers = remember(membership.memberCount) {
-                    String.format(java.util.Locale.US, "%,d", membership.memberCount)
-                }
-                Text(
-                    text = "$formattedMembers members • ${membership.activityText}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
 
-            Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(8.dp))
 
-            // Trailing Column: Pricing Pill stacked above CTA Button
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
                 if (membership.isMonetized) {
                     val priceRands = membership.priceCents / 100
                     Surface(
@@ -202,6 +180,36 @@ fun MembershipCard(membership: MembershipItem, onClick: () -> Unit) {
                         )
                     }
                 }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Bottom Row: Creator Handle & Compact Activity on Left + CTA Button on Right
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "by @${membership.creatorHandle}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    val formattedMembers = remember(membership.memberCount) {
+                        String.format(java.util.Locale.US, "%,d", membership.memberCount)
+                    }
+                    Text(
+                        text = "$formattedMembers • ${membership.activityText}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(Modifier.width(8.dp))
 
                 Surface(
                     shape = RoundedCornerShape(10.dp),
@@ -217,7 +225,7 @@ fun MembershipCard(membership: MembershipItem, onClick: () -> Unit) {
                         color = if (membership.isSubscribed) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     )
                 }
             }
