@@ -729,7 +729,9 @@ fun ChatsListScreen(
                                         priceCents = 0L,
                                         memberCount = 1420,
                                         sku = null,
-                                        isSubscribed = true
+                                        isSubscribed = true,
+                                        creatorHandle = "firstapp",
+                                        activityText = "Active 5m ago"
                                     ),
                                     MembershipItem(
                                         id = "vip_creators_tier1",
@@ -739,17 +741,21 @@ fun ChatsListScreen(
                                         priceCents = 5000L,
                                         memberCount = 185,
                                         sku = "member_sub_50",
-                                        isSubscribed = false
+                                        isSubscribed = false,
+                                        creatorHandle = "alex_creator",
+                                        activityText = "Active 15m ago"
                                     ),
                                     MembershipItem(
                                         id = "pro_traders_tier2",
-                                        title = "Pro Traders Inner Circle (Tier 2)",
+                                        title = "Pro Traders Hub (Tier 2)",
                                         description = "Premium signals, direct creator chat, and VIP member badge.",
                                         isMonetized = true,
                                         priceCents = 9000L,
                                         memberCount = 92,
                                         sku = "member_sub_90",
-                                        isSubscribed = false
+                                        isSubscribed = false,
+                                        creatorHandle = "pro_trader",
+                                        activityText = "Active 1h ago"
                                     ),
                                     MembershipItem(
                                         id = "executive_mastermind_tier3",
@@ -759,7 +765,9 @@ fun ChatsListScreen(
                                         priceCents = 17000L,
                                         memberCount = 38,
                                         sku = "member_sub_170",
-                                        isSubscribed = false
+                                        isSubscribed = false,
+                                        creatorHandle = "executive_desk",
+                                        activityText = "Active 2h ago"
                                     ),
                                     MembershipItem(
                                         id = "mastermind_tier4",
@@ -769,7 +777,9 @@ fun ChatsListScreen(
                                         priceCents = 35000L,
                                         memberCount = 24,
                                         sku = "member_sub_350",
-                                        isSubscribed = false
+                                        isSubscribed = false,
+                                        creatorHandle = "semi_pro",
+                                        activityText = "Active 3h ago"
                                     ),
                                     MembershipItem(
                                         id = "sovereign_advisory_tier9",
@@ -779,7 +789,9 @@ fun ChatsListScreen(
                                         priceCents = 1800000L,
                                         memberCount = 12,
                                         sku = "member_sub_18000",
-                                        isSubscribed = false
+                                        isSubscribed = false,
+                                        creatorHandle = "sovereign_vip",
+                                        activityText = "Active 1d ago"
                                     )
                                 )
                             }
