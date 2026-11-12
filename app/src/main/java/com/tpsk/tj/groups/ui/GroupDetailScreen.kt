@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -40,6 +41,9 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,6 +57,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -122,6 +127,10 @@ fun GroupDetailScreen(
         ?: info?.name?.takeIf { it.isNotBlank() }
         ?: chat.senderName.ifBlank { "Group" }
     val inviteLink = inviteCode?.takeIf { it.isNotBlank() }?.let { "firstapp://group/invite/$it" }
+    val totalParticipantCount = memberIds.size.coerceAtLeast(1)
+    val participantText = if (totalParticipantCount == 1) "1 participant" else "$totalParticipantCount participants"
+    val canSearch = totalParticipantCount >= 8
+    var isSearchExpanded by remember { mutableStateOf(false) }
     var showAddMember by remember { mutableStateOf(false) }
     var showLeaveConfirm by remember { mutableStateOf(false) }
     var memberQuery by remember { mutableStateOf("") }
@@ -220,7 +229,7 @@ fun GroupDetailScreen(
                         Text("Tap the name to rename", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                     Text(
-                        "${memberIds.size.coerceAtLeast(1)} participants",
+                        participantText,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
@@ -334,31 +343,99 @@ fun GroupDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "${memberIds.size} participants",
+                        text = participantText,
                         fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
-                    Icon(
-                        Icons.Default.Search,
-                        contentDescription = "Search members",
-                        tint = AppAccent,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (canSearch) {
+                        IconButton(
+                            onClick = {
+                                isSearchExpanded = !isSearchExpanded
+                                if (!isSearchExpanded) {
+                                    memberQuery = ""
+                                }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isSearchExpanded) Icons.Default.Close else Icons.Default.Search,
+                                contentDescription = if (isSearchExpanded) "Close search" else "Search members",
+                                tint = AppAccent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 }
-                OutlinedTextField(
-                    value = memberQuery,
-                    onValueChange = { memberQuery = it },
-                    placeholder = { Text("Search members") },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    singleLine = true
-                )
-                Spacer(Modifier.height(8.dp))
+                if (canSearch && isSearchExpanded) {
+                    val focusRequester = remember { FocusRequester() }
+                    LaunchedEffect(Unit) {
+                        focusRequester.requestFocus()
+                    }
+                    OutlinedTextField(
+                        value = memberQuery,
+                        onValueChange = { memberQuery = it },
+                        placeholder = { Text("Search members...", color = Color.Gray, fontSize = 14.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingIcon = {
+                            if (memberQuery.isNotEmpty()) {
+                                IconButton(onClick = { memberQuery = "" }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                            .focusRequester(focusRequester),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AppAccent,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
             }
 
             val visibleMembers = memberIds.filter { id ->
+                if (memberQuery.isBlank()) return@filter true
+                val q = memberQuery.trim()
                 val contact = contacts.find { it.id == id }
-                val name = if (id == currentUserId) "You" else sanitizeDisplayName(contact?.displayName, id, contact?.phoneNumber)
-                memberQuery.isBlank() || name.contains(memberQuery, ignoreCase = true)
+                val isSelf = (id == currentUserId)
+                val name = if (isSelf) "You" else sanitizeDisplayName(contact?.displayName, id, contact?.phoneNumber)
+                val displayName = contact?.displayName.orEmpty()
+                val username = contact?.username.orEmpty()
+                val phone = contact?.phoneNumber.orEmpty()
+
+                name.contains(q, ignoreCase = true) ||
+                displayName.contains(q, ignoreCase = true) ||
+                username.contains(q, ignoreCase = true) ||
+                phone.contains(q, ignoreCase = true) ||
+                (isSelf && "you".contains(q, ignoreCase = true))
+            }
+
+            if (canSearch && isSearchExpanded && memberQuery.isNotBlank() && visibleMembers.isEmpty()) {
+                item {
+                    Text(
+                        text = "No matching participants",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
             }
             items(visibleMembers, key = { it }) { memberId ->
                 val contact = contacts.find { it.id == memberId }
