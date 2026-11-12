@@ -54,6 +54,9 @@ import com.tpsk.tj.chat.ui.components.StoriesRow
 import com.tpsk.tj.channels.ui.ChannelList
 import com.tpsk.tj.channels.ui.ChannelItem
 import com.tpsk.tj.chat.ui.rewards.RewardsScreen
+import com.tpsk.tj.navigation.ChatFilterTab
+import com.tpsk.tj.ui.members.*
+import com.tpsk.tj.billing.GooglePlayBillingManager
 import com.tpsk.tj.chat.jobs.ui.screens.JobList
 import com.tpsk.tj.common.data.ads.AdManager
 import com.tpsk.tj.common.ui.components.DynamicAdCard
@@ -96,7 +99,7 @@ fun ChatsListScreen(
                     "chats" -> 0
                     "channels" -> 1
                     "nearby", "jobs" -> 2
-                    "rewards" -> 3
+                    "members", "rewards" -> 3
                     else -> 0
                 }
             } else {
@@ -111,7 +114,7 @@ fun ChatsListScreen(
                 "chats" -> 0
                 "channels" -> 1
                 "nearby", "jobs" -> 2
-                "rewards" -> 3
+                "members", "rewards" -> 3
                 else -> 0
             }
             selectedTabItem = idx
@@ -181,7 +184,12 @@ fun ChatsListScreen(
     //    chatViewModel.syncChats()
     // }
 
-    val tabs = listOf("Chats", "Channels", "Nearby", "Rewards")
+    val tabs = listOf(
+        ChatFilterTab.CHATS.label,
+        ChatFilterTab.CHANNELS.label,
+        ChatFilterTab.NEARBY.label,
+        ChatFilterTab.MEMBERS.label
+    )
 
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(
         initialPage = selectedTabItem,
@@ -367,17 +375,6 @@ fun ChatsListScreen(
                 }
             }
         },
-        bottomBar = {
-            if (selectedTabItem == 3) {
-                Column {
-                    BannerAdView(
-                        adUnitId = AdUnitConfig.BANNER_REWARDS_ID,
-                        modifier = Modifier.navigationBarsPadding()
-                    )
-                    Spacer(Modifier.height(bottomPadding))
-                }
-            }
-        },
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
@@ -498,6 +495,15 @@ fun ChatsListScreen(
                             )
                         }
                         3 -> {
+                            ListItem(
+                                headlineContent = { Text("Start New Group", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold) },
+                                leadingContent = { Icon(Icons.Default.GroupAdd, null, tint = MaterialTheme.colorScheme.primary) },
+                                modifier = Modifier.clickable { 
+                                    showTopMoreSheet = false
+                                    navController.navigate(Screen.CreateMembership.route) 
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                            )
                             ListItem(
                                 headlineContent = { Text("Wallet", color = MaterialTheme.colorScheme.onSurface) },
                                 leadingContent = { Icon(Icons.Default.AccountBalanceWallet, null, tint = Color.Green) },
@@ -709,10 +715,145 @@ fun ChatsListScreen(
                             )
                         }
                         3 -> {
-                            RewardsScreen(
-                                viewModel = rewardViewModel,
-                                topBarHeight = 0.dp
+                            var selectedMembershipForUnlock by remember { mutableStateOf<MembershipItem?>(null) }
+                            var subscribedSuccessItem by remember { mutableStateOf<MembershipItem?>(null) }
+                            val activity = context as? android.app.Activity
+
+                            val memberGroups = remember {
+                                listOf(
+                                    MembershipItem(
+                                        id = "free_community_group",
+                                        title = "TJ General Community",
+                                        description = "Official open community group for all FirstApp members.",
+                                        isMonetized = false,
+                                        priceCents = 0L,
+                                        memberCount = 1420,
+                                        sku = null,
+                                        isSubscribed = true
+                                    ),
+                                    MembershipItem(
+                                        id = "vip_creators_tier1",
+                                        title = "VIP Creators Hub (Tier 1)",
+                                        description = "Exclusive host broadcasts and private member chat room.",
+                                        isMonetized = true,
+                                        priceCents = 5000L,
+                                        memberCount = 185,
+                                        sku = "member_sub_50",
+                                        isSubscribed = false
+                                    ),
+                                    MembershipItem(
+                                        id = "pro_traders_tier2",
+                                        title = "Pro Traders Inner Circle (Tier 2)",
+                                        description = "Premium signals, direct creator chat, and VIP member badge.",
+                                        isMonetized = true,
+                                        priceCents = 9000L,
+                                        memberCount = 92,
+                                        sku = "member_sub_90",
+                                        isSubscribed = false
+                                    ),
+                                    MembershipItem(
+                                        id = "executive_mastermind_tier3",
+                                        title = "Executive Analysis Desk (Tier 3)",
+                                        description = "Top-tier insider access, priority host Q&A, and custom signals.",
+                                        isMonetized = true,
+                                        priceCents = 17000L,
+                                        memberCount = 38,
+                                        sku = "member_sub_170",
+                                        isSubscribed = false
+                                    ),
+                                    MembershipItem(
+                                        id = "mastermind_tier4",
+                                        title = "Semi-Pro Mastermind (Tier 4)",
+                                        description = "Advanced market commentary & direct creator mentorship.",
+                                        isMonetized = true,
+                                        priceCents = 35000L,
+                                        memberCount = 24,
+                                        sku = "member_sub_350",
+                                        isSubscribed = false
+                                    ),
+                                    MembershipItem(
+                                        id = "sovereign_advisory_tier9",
+                                        title = "Sovereign Advisory (Tier 9)",
+                                        description = "Ultra-VIP private advisory desk, capped at 25 members.",
+                                        isMonetized = true,
+                                        priceCents = 1800000L,
+                                        memberCount = 12,
+                                        sku = "member_sub_18000",
+                                        isSubscribed = false
+                                    )
+                                )
+                            }
+
+                            MembersListScreen(
+                                memberships = memberGroups,
+                                bottomPadding = bottomPadding,
+                                onMembershipClick = { membership ->
+                                    if (!membership.isMonetized || membership.isSubscribed) {
+                                        navController.navigate(
+                                            Screen.MembershipChat.createRoute(
+                                                id = membership.id,
+                                                title = membership.title,
+                                                isOwner = false
+                                            )
+                                        )
+                                    } else {
+                                        selectedMembershipForUnlock = membership
+                                    }
+                                },
+                                onCreateMembershipClick = {
+                                    navController.navigate(Screen.CreateMembership.route)
+                                }
                             )
+
+                            selectedMembershipForUnlock?.let { item ->
+                                MembershipUnlockBottomSheet(
+                                    membership = item,
+                                    onDismiss = { selectedMembershipForUnlock = null },
+                                    onLaunchGooglePlayBilling = { sku ->
+                                        val activeItem = selectedMembershipForUnlock
+                                        selectedMembershipForUnlock = null
+                                        if (activity != null) {
+                                            try {
+                                                val entryPoint = dagger.hilt.android.EntryPointAccessors.fromApplication(
+                                                    context.applicationContext,
+                                                    com.tpsk.tj.chat.rewards.data.RewardsManager.RewardsEntryPoint::class.java
+                                                )
+                                                val mingApi = entryPoint.rewardsApi() as? com.tpsk.tj.mingle.data.api.MingleApi
+                                                if (mingApi != null) {
+                                                    val billingManager = GooglePlayBillingManager(context.applicationContext, mingApi)
+                                                    billingManager.launchSubscriptionPurchase(activity, sku)
+                                                }
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("ChatsListScreen", "Error launching subscription purchase", e)
+                                            }
+                                        }
+                                        if (activeItem != null) {
+                                            subscribedSuccessItem = activeItem
+                                        }
+                                    }
+                                )
+                            }
+
+                            subscribedSuccessItem?.let { item ->
+                                MembershipSuccessDialog(
+                                    groupTitle = item.title,
+                                    priceRands = item.priceCents / 100,
+                                    onDismiss = { subscribedSuccessItem = null },
+                                    onOpenChat = {
+                                        val target = subscribedSuccessItem
+                                        subscribedSuccessItem = null
+                                        if (target != null) {
+                                            navController.navigate(
+                                                Screen.MembershipChat.createRoute(
+                                                    id = target.id,
+                                                    title = target.title,
+                                                    isOwner = false
+                                                )
+                                            )
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

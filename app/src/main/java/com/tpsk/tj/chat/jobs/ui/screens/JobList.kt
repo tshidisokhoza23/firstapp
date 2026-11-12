@@ -40,16 +40,10 @@ fun JobsHomeScreen(
     viewModel: JobViewModel = hiltViewModel()
 ) {
     val jobsState by viewModel.jobs.collectAsState()
-    val feedChip by viewModel.feedChip.collectAsState()
-    var selectedFilter by remember { mutableStateOf("All") }
-    var isSearchActive by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
+    val activeTab by viewModel.activeTab.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
 
-    val filters = listOf(
-        "All", "General", "IT", "Finance", "Sales", "Healthcare", "Education",
-        "Engineering", "Marketing", "Hospitality", "Logistics", "Admin", "Legal", "Construction"
-    )
+    val mainTabs = listOf("All", "For You", "Recent", "Saved")
 
     val backgroundBrush = if (com.tpsk.tj.common.ui.theme.LocalIsDarkTheme.current) {
         Brush.verticalGradient(
@@ -73,116 +67,69 @@ fun JobsHomeScreen(
                     .background(Color.Transparent)
                     .statusBarsPadding()
             ) {
-                if (isSearchActive) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().height(64.dp),
-                        color = Color.Transparent
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextField(
-                                value = searchQuery,
-                                onValueChange = {
-                                    searchQuery = it
-                                    viewModel.search(it)
-                                },
-                                modifier = Modifier.weight(1f),
-                                placeholder = { Text("Search jobs...", color = Color.Gray) },
-                                leadingIcon = {
-                                    IconButton(onClick = {
-                                        isSearchActive = false
-                                        searchQuery = ""
-                                        viewModel.search("")
-                                    }) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurface)
-                                    }
-                                },
-                                trailingIcon = {
-                                    if (searchQuery.isNotEmpty()) {
-                                        IconButton(onClick = {
-                                            searchQuery = ""
-                                            viewModel.search("")
-                                        }) {
-                                            Icon(Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.onSurface)
-                                        }
-                                    }
-                                },
-                                singleLine = true,
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    cursorColor = MaterialTheme.colorScheme.primary,
-                                    focusedTextColor = MaterialTheme.colorScheme.onBackground,
-                                    unfocusedTextColor = MaterialTheme.colorScheme.onBackground
-                                )
-                            )
-                        }
-                    }
-                } else {
-                    CenterAlignedTopAppBar(
-                        title = { AppLogo(size = 36.dp) },
-                        navigationIcon = {
-                            Box {
-                                IconButton(onClick = { showMenu = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Menu,
-                                        contentDescription = "Menu",
-                                        tint = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                    DropdownMenuItem(
-                                        text = { Text("My jobs") },
-                                        onClick = {
-                                            showMenu = false
-                                            navController.navigate(Screen.MyJobs.route)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Applications") },
-                                        onClick = {
-                                            showMenu = false
-                                            navController.navigate(Screen.Applications.route)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Job profile") },
-                                        onClick = {
-                                            showMenu = false
-                                            navController.navigate(Screen.JobProfile.route)
-                                        }
-                                    )
-                                }
-                            }
-                        },
-                        actions = {
-                            IconButton(onClick = { isSearchActive = true }) {
+                CenterAlignedTopAppBar(
+                    title = { AppLogo(size = 36.dp) },
+                    navigationIcon = {
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
                                 Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Menu",
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                        },
-                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                            containerColor = Color.Transparent
-                        )
+                            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("My jobs") },
+                                    onClick = {
+                                        showMenu = false
+                                        navController.navigate(Screen.MyJobs.route)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Applications") },
+                                    onClick = {
+                                        showMenu = false
+                                        navController.navigate(Screen.Applications.route)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Job profile") },
+                                    onClick = {
+                                        showMenu = false
+                                        navController.navigate(Screen.JobProfile.route)
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { navController.navigate(Screen.JobSearch.route) }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent
                     )
-                }
+                )
             }
 
-            // Job Category Chips Row ALWAYS visible at the top
+            // High-intent discovery tab chips row
             LazyRow(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(filters) { filter ->
-                    val isSelected = (selectedFilter == filter) || (feedChip == filter)
+                items(mainTabs) { tab ->
+                    val isSelected = (activeTab == tab)
                     com.tpsk.tj.common.ui.components.AppFilterChip(
-                        text = filter,
+                        text = tab,
                         isSelected = isSelected,
                         onClick = {
-                            selectedFilter = filter
-                            viewModel.selectFeedChip(filter)
+                            viewModel.selectFeedTab(tab)
                         }
                     )
                 }
@@ -214,6 +161,8 @@ fun JobsHomeScreen(
                         } else {
                             JobList(
                                 jobs = state.data ?: emptyList(),
+                                activeTab = activeTab,
+                                onBrowseAllClick = { viewModel.selectFeedTab("All") },
                                 onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
                                 onSaveClick = { viewModel.toggleSave(it) }
                             )
@@ -222,6 +171,8 @@ fun JobsHomeScreen(
                     is Resource.Success -> {
                         JobList(
                             jobs = state.data ?: emptyList(),
+                            activeTab = activeTab,
+                            onBrowseAllClick = { viewModel.selectFeedTab("All") },
                             onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it.id)) },
                             onSaveClick = { viewModel.toggleSave(it) }
                         )
@@ -252,6 +203,8 @@ fun JobsHomeScreen(
 fun JobList(
     jobs: List<Job>,
     topBarHeight: Dp = 0.dp,
+    activeTab: String = "All",
+    onBrowseAllClick: () -> Unit = {},
     onJobClick: (Job) -> Unit,
     onSaveClick: (Job) -> Unit = {}
 ) {
@@ -261,13 +214,57 @@ fun JobList(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("No jobs yet", color = MaterialTheme.colorScheme.onBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Open roles show up here. Use the button to post one.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp
-            )
+            when (activeTab) {
+                "For You" -> {
+                    Text(
+                        text = "No personalized matches yet",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Complete your job profile or browse All jobs for personalized matches.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = onBrowseAllClick) {
+                        Text("Browse All Jobs")
+                    }
+                }
+                "Saved" -> {
+                    Text(
+                        text = "No saved jobs yet",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Tap the bookmark icon on any job listing to save it for later.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+                else -> {
+                    Text(
+                        text = "No jobs yet",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Open roles show up here. Use the button to post one.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
         }
         return
     }

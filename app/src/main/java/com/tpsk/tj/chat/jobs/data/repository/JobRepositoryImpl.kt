@@ -31,9 +31,10 @@ class JobRepositoryImpl @Inject constructor(
         salaryMin: Double?,
         postedWithinDays: Int?,
         query: String?,
-        category: String?
+        category: String?,
+        tab: String?
     ): Flow<Resource<List<Job>>> = flow {
-        val filtering = !jobType.isNullOrBlank() || featuredOnly || !location.isNullOrBlank() || salaryMin != null || postedWithinDays != null || !query.isNullOrBlank() || !category.isNullOrBlank()
+        val filtering = !jobType.isNullOrBlank() || featuredOnly || !location.isNullOrBlank() || salaryMin != null || postedWithinDays != null || !query.isNullOrBlank() || !category.isNullOrBlank() || !tab.isNullOrBlank()
         val cachedEntities = jobDao.getJobs().first()
         val cached = cachedEntities.map { it.toModel() }
         if (!filtering && cached.isNotEmpty()) {
@@ -53,7 +54,8 @@ class JobRepositoryImpl @Inject constructor(
                     postedWithinDays = postedWithinDays,
                     query = query,
                     category = category,
-                    sort = if (query.isNullOrBlank()) "match" else "relevance"
+                    sort = if (query.isNullOrBlank()) "match" else "relevance",
+                    tab = tab
                 )
             }
             if (response.isSuccessful) {
@@ -252,18 +254,21 @@ class JobRepositoryImpl @Inject constructor(
         jobType: String?,
         featuredOnly: Boolean,
         postedWithinDays: Int?,
-        category: String?
+        category: String?,
+        cursor: String?
     ): Flow<Resource<List<Job>>> = flow {
         emit(Resource.Loading())
         try {
             val response = jobApi.search(
+                q = query,
                 query = query,
                 location = location,
                 salaryMin = salaryMin,
                 jobType = jobType,
                 featured = if (featuredOnly) true else null,
                 postedWithinDays = postedWithinDays,
-                category = category
+                category = category,
+                cursor = cursor
             )
             if (response.isSuccessful) {
                 emit(Resource.Success(response.body()?.jobs.orEmpty().map { it.toModel() }))

@@ -20,10 +20,12 @@ object MediaProcessor {
     suspend fun processAndStripExif(
         context: Context,
         sourceUri: Uri,
-        maxDimension: Int = 2048,
-        quality: Int = 82
+        maxDimension: Int = 1920,
+        quality: Int = 88
     ): File = withContext(Dispatchers.IO) {
-        com.tpsk.tj.common.util.MediaUtils.compressImage(context, sourceUri, maxDimension, quality)
+        val clampedDim = maxDimension.coerceIn(1440, 1920)
+        val clampedQual = quality.coerceIn(85, 90)
+        com.tpsk.tj.common.util.MediaUtils.compressImage(context, sourceUri, clampedDim, clampedQual)
             ?.let { return@withContext it }
         val inputStream = context.contentResolver.openInputStream(sourceUri)
             ?: throw IllegalArgumentException("Cannot open URI: $sourceUri")
@@ -34,7 +36,7 @@ object MediaProcessor {
         inputStream.close()
 
         var sampleSize = 1
-        while (options.outWidth / sampleSize > maxDimension || options.outHeight / sampleSize > maxDimension) {
+        while (options.outWidth / sampleSize > clampedDim || options.outHeight / sampleSize > clampedDim) {
             sampleSize *= 2
         }
 
@@ -54,9 +56,15 @@ object MediaProcessor {
         val finalBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 
         // 4. Save to temporary cache without copying EXIF metadata (strips GPS/Device ID)
-        val cleanFile = File(context.cacheDir, "post_img_${UUID.randomUUID()}.jpg")
+        val cleanFile = File(context.cacheDir, "post_img_${UUID.randomUUID()}.webp")
         cleanFile.outputStream().use { out ->
-            finalBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            val format = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+            finalBitmap.compress(format, clampedQual, out)
         }
 
         // Release native bitmap memory immediately

@@ -34,6 +34,7 @@ import com.tpsk.tj.chat.nearby.ui.viewmodel.NearbyViewModel
 fun MyNearbyPostsScreen(
     onBack: () -> Unit,
     onOpenPost: (NearbyPost) -> Unit = {},
+    onOpenImage: (String) -> Unit = {},
     nearbyViewModel: NearbyViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -115,6 +116,7 @@ fun MyNearbyPostsScreen(
                     MyPostCard(
                         post = post,
                         onOpen = { onOpenPost(post) },
+                        onOpenImage = onOpenImage,
                         onDelete = { postToDelete = post },
                         onToggleResolved = {
                             nearbyViewModel.markPostResolved(post.id, !post.isResolved) { err ->
@@ -219,6 +221,7 @@ fun MyNearbyPostsScreen(
 fun MyPostCard(
     post: NearbyPost,
     onOpen: () -> Unit,
+    onOpenImage: (String) -> Unit = {},
     onDelete: () -> Unit,
     onToggleResolved: () -> Unit,
     onEdit: () -> Unit
@@ -274,7 +277,10 @@ fun MyPostCard(
 
             if (post.imageUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                NearbyPostImages(post.imageUrls)
+                NearbyPostImages(
+                    imageUrls = post.imageUrls,
+                    onImageClick = onOpenImage
+                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))

@@ -5,8 +5,6 @@ import android.content.Context
 import android.util.Log
 import com.android.billingclient.api.*
 import com.tpsk.tj.mingle.data.api.MingleApi
-import com.tpsk.tj.mingle.data.api.MingleDtosKt
-import com.tpsk.tj.mingle.data.api.MingleLocationRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,14 +17,14 @@ import javax.inject.Singleton
 
 @Singleton
 class GooglePlayBillingManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val api: MingleApi
 ) : PurchasesUpdatedListener {
 
-    private val TAG = "GooglePlayBilling"
+    private val tag = "GooglePlayBilling"
     private var billingClient: BillingClient = BillingClient.newBuilder(context)
         .setListener(this)
-        .enablePendingPurchases()
+        .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().enablePrepaidPlans().build())
         .build()
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -45,14 +43,14 @@ class GooglePlayBillingManager @Inject constructor(
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    Log.d(TAG, "Google Play Billing Client connected successfully.")
+                    Log.d(tag, "Google Play Billing Client connected successfully.")
                 } else {
-                    Log.e(TAG, "Billing setup failed: ${billingResult.debugMessage}")
+                    Log.e(tag, "Billing setup failed: ${billingResult.debugMessage}")
                 }
             }
 
             override fun onBillingServiceDisconnected() {
-                Log.w(TAG, "Billing service disconnected. Retrying connection...")
+                Log.w(tag, "Billing service disconnected. Retrying connection...")
                 startConnection()
             }
         })
@@ -76,9 +74,10 @@ class GooglePlayBillingManager @Inject constructor(
             .setProductList(productList)
             .build()
 
-        billingClient.queryProductDetailsAsync(params) { billingResult, productDetailsList ->
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && productDetailsList.isNotEmpty()) {
-                val productDetails = productDetailsList[0]
+        billingClient.queryProductDetailsAsync(params) { billingResult, queryProductDetailsResult ->
+            val list = queryProductDetailsResult.productDetailsList
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && !list.isNullOrEmpty()) {
+                val productDetails = list[0]
                 val productDetailsParamsList = listOf(
                     BillingFlowParams.ProductDetailsParams.newBuilder()
                         .setProductDetails(productDetails)
@@ -96,13 +95,55 @@ class GooglePlayBillingManager @Inject constructor(
         }
     }
 
+    fun launchSubscriptionPurchase(activity: Activity, sku: String) {
+        if (!billingClient.isReady) {
+            _purchaseError.value = "Billing service is connecting. Please try again."
+            startConnection()
+            return
+        }
+
+        val productList = listOf(
+            QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(sku)
+                .setProductType(BillingClient.ProductType.SUBS)
+                .build()
+        )
+
+        val params = QueryProductDetailsParams.newBuilder()
+            .setProductList(productList)
+            .build()
+
+        billingClient.queryProductDetailsAsync(params) { billingResult, queryProductDetailsResult ->
+            val list = queryProductDetailsResult.productDetailsList
+            if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && !list.isNullOrEmpty()) {
+                val productDetails = list[0]
+                val offerDetails = productDetails.subscriptionOfferDetails?.firstOrNull()
+
+                val productDetailsParamsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
+                    .setProductDetails(productDetails)
+
+                if (offerDetails != null) {
+                    productDetailsParamsBuilder.setOfferToken(offerDetails.offerToken)
+                }
+
+                val billingFlowParams = BillingFlowParams.newBuilder()
+                    .setProductDetailsParamsList(listOf(productDetailsParamsBuilder.build()))
+                    .build()
+
+                billingClient.launchBillingFlow(activity, billingFlowParams)
+            } else {
+                _purchaseError.value = "Subscription SKU ($sku) unavailable in Google Play Store."
+            }
+        }
+    }
+
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: MutableList<Purchase>?) {
         if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && !purchases.isNullOrEmpty()) {
             for (purchase in purchases) {
                 handlePurchase(purchase)
             }
         } else if (billingResult.responseCode == BillingClient.BillingResponseCode.USER_CANCELED) {
-            Log.i(TAG, "User canceled Google Play purchase flow.")
+            Log.i(tag, "User canceled Google Play purchase flow.")
         } else {
             _purchaseError.value = "Purchase failed: ${billingResult.debugMessage}"
         }
@@ -118,7 +159,6 @@ class GooglePlayBillingManager @Inject constructor(
             // Verify with backend via verification API endpoint
             scope.launch {
                 try {
-                    // Send purchase token to backend verification endpoint
                     val response = api.extendFeed(mapOf(
                         "product_id" to productId,
                         "purchase_token" to purchaseToken,
@@ -130,14 +170,13 @@ class GooglePlayBillingManager @Inject constructor(
                         val body = response.body()!!
                         _newBalance.value = body.balance.toInt()
 
-                        // Consume token asynchronously after backend credits coins
                         val consumeParams = ConsumeParams.newBuilder()
                             .setPurchaseToken(purchaseToken)
                             .build()
 
                         billingClient.consumeAsync(consumeParams) { consumeResult, _ ->
                             if (consumeResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                                Log.d(TAG, "Consumable token consumed successfully.")
+                                Log.d(tag, "Consumable token consumed successfully.")
                             }
                         }
                     } else {

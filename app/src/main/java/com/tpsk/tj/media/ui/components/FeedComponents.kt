@@ -143,7 +143,7 @@ fun MediaGrid(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 280.dp, max = 540.dp)
+                            .heightIn(min = 200.dp, max = 280.dp)
                             .clip(shape)
                             .background(Color.Black)
                             .clickable { onMediaClick(urlString) },
@@ -180,7 +180,7 @@ fun MediaGrid(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 220.dp, max = 520.dp)
+                            .heightIn(max = 280.dp)
                             .clip(shape)
                             .background(Color.Black.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
@@ -190,9 +190,9 @@ fun MediaGrid(
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 220.dp, max = 520.dp)
+                                .heightIn(max = 280.dp)
                                 .clickable { onMediaClick(urlString) },
-                            contentScale = ContentScale.Fit,
+                            contentScale = ContentScale.Crop,
                             placeholder = placeholderPainter,
                             error = errorPainter
                         )
@@ -203,7 +203,7 @@ fun MediaGrid(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(380.dp),
+                        .height(280.dp),
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     urls.take(2).forEach { rawUrl ->
@@ -225,7 +225,7 @@ fun MediaGrid(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(420.dp),
+                        .height(280.dp),
                     horizontalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     FeedMediaTile(
@@ -267,7 +267,7 @@ fun MediaGrid(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(450.dp),
+                        .height(280.dp),
                     verticalArrangement = Arrangement.spacedBy(spacing)
                 ) {
                     Row(

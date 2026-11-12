@@ -18,7 +18,8 @@ interface JobApi {
         @Query("posted_within_days") postedWithinDays: Int? = null,
         @Query("query") query: String? = null,
         @Query("category") category: String? = null,
-        @Query("sort") sort: String? = "match"
+        @Query("sort") sort: String? = "match",
+        @Query("tab") tab: String? = null
     ): Response<JobsResponse>
 
     @GET("jobs/{jobId}")
@@ -26,13 +27,15 @@ interface JobApi {
 
     @GET("jobs/search")
     suspend fun search(
-        @Query("query") query: String,
+        @Query("q") q: String? = null,
+        @Query("query") query: String? = null,
         @Query("location") location: String? = null,
         @Query("salary_min") salaryMin: Double? = null,
         @Query("job_type") jobType: String? = null,
         @Query("featured") featured: Boolean? = null,
         @Query("posted_within_days") postedWithinDays: Int? = null,
-        @Query("category") category: String? = null
+        @Query("category") category: String? = null,
+        @Query("cursor") cursor: String? = null
     ): Response<JobsResponse>
 
     @POST("jobs/{jobId}/report")

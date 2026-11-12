@@ -40,7 +40,7 @@ fun MoreTabScreen(
         ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
         ShortcutItem("Channels", Icons.Default.Campaign, Color(0xFF4CAF50), Screen.Main.route + "?tab=chats&subtab=channels", isEnabled = true),
         ShortcutItem("Jobs", Icons.Default.Work, Color(0xFF795548), Screen.Main.route + "?tab=chats&subtab=jobs", isEnabled = false),
-        ShortcutItem("Rewards", Icons.Default.Stars, Color(0xFFFF9800), Screen.Main.route + "?tab=chats&subtab=rewards", isEnabled = true),
+        ShortcutItem("Rewards", Icons.Default.Stars, Color(0xFFFF9800), Screen.Rewards.route, isEnabled = true),
         ShortcutItem("Updates", Icons.Default.History, Color(0xFF2196F3), Screen.Main.route + "?tab=media", isEnabled = true),
         ShortcutItem("Files", Icons.Default.Folder, Color(0xFFFFC107), Screen.Files.route, isEnabled = true),
         ShortcutItem("Calendar", Icons.Default.CalendarToday, Color(0xFFE91E63), Screen.Calendar.route, isEnabled = true),

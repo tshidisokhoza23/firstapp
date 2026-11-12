@@ -39,9 +39,6 @@ import com.tpsk.tj.common.util.formatTwitterTime
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-val AccentCyan = Color(0xFF00B4D8)
-val DarkNavyHeader = Color(0xFF0F2B36)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiscussionThreadScreen(
@@ -55,6 +52,7 @@ fun DiscussionThreadScreen(
     authorId: String = "",
     onBack: () -> Unit,
     onOpenProfile: (String) -> Unit = {},
+    onOpenImage: (String) -> Unit = {},
     nearbyViewModel: NearbyViewModel = hiltViewModel(),
     userViewModel: UserViewModel = hiltViewModel()
 ) {
@@ -132,13 +130,13 @@ fun DiscussionThreadScreen(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(CircleShape)
-                                .background(DarkNavyHeader),
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Forum,
                                 contentDescription = "Discussion Thread",
-                                tint = AccentCyan,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -174,7 +172,7 @@ fun DiscussionThreadScreen(
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = "Thread Rules",
-                            tint = if (showRulesBanner) AccentCyan else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (showRulesBanner) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Box {
@@ -262,12 +260,12 @@ fun DiscussionThreadScreen(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF689F38)),
+                                .background(MaterialTheme.colorScheme.primaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = currentUserName.take(1).uppercase(),
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             )
@@ -294,7 +292,7 @@ fun DiscussionThreadScreen(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
                             unfocusedBorderColor = Color.Transparent,
-                            focusedBorderColor = AccentCyan
+                            focusedBorderColor = MaterialTheme.colorScheme.primary
                         )
                     )
 
@@ -303,7 +301,7 @@ fun DiscussionThreadScreen(
                     // Send Button
                     Surface(
                         shape = CircleShape,
-                        color = if (replyText.trim().isNotEmpty()) AccentCyan else Color(0xFF1F3A44),
+                        color = if (replyText.trim().isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                         modifier = Modifier
                             .size(42.dp)
                             .clickable(enabled = replyText.trim().isNotEmpty()) {
@@ -334,7 +332,7 @@ fun DiscussionThreadScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
                                 contentDescription = "Send",
-                                tint = if (replyText.trim().isNotEmpty()) Color.White else Color.Gray,
+                                tint = if (replyText.trim().isNotEmpty()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -357,20 +355,20 @@ fun DiscussionThreadScreen(
             ) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = DarkNavyHeader,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Gavel, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Gavel, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Community Thread Rules",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
@@ -381,7 +379,7 @@ fun DiscussionThreadScreen(
                                     "4. Privacy First: Exact GPS coordinates are never disclosed.",
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
-                            color = Color.White.copy(alpha = 0.85f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
                         )
                     }
                 }
@@ -400,8 +398,8 @@ fun DiscussionThreadScreen(
                 item(key = "pinned_post_header") {
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = DarkNavyHeader,
-                        border = BorderStroke(1.dp, AccentCyan.copy(alpha = 0.35f)),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
@@ -411,7 +409,7 @@ fun DiscussionThreadScreen(
                                 Icon(
                                     imageVector = Icons.Default.PushPin,
                                     contentDescription = "Pinned",
-                                    tint = AccentCyan,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -419,7 +417,7 @@ fun DiscussionThreadScreen(
                                     text = "PINNED POST",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = AccentCyan,
+                                    color = MaterialTheme.colorScheme.primary,
                                     letterSpacing = 0.5.sp
                                 )
                             }
@@ -430,7 +428,7 @@ fun DiscussionThreadScreen(
                                 text = "${shownAuthor.ifBlank { "Author" }} • ${shownDistance.ifBlank { "Nearby" }} • ${authorTime.ifBlank { "now" }}",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSurface
                             )
 
                             Spacer(modifier = Modifier.height(4.dp))
@@ -439,13 +437,13 @@ fun DiscussionThreadScreen(
                                 text = shownContent.ifBlank { "Loading nearby post..." },
                                 fontSize = 14.sp,
                                 lineHeight = 20.sp,
-                                color = Color.White.copy(alpha = 0.95f)
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             val threadImages = uiState.activeThreadPost?.imageUrls?.takeIf { it.isNotEmpty() }
                                 ?: uiState.posts.find { it.id == postId }?.imageUrls.orEmpty()
                             if (threadImages.isNotEmpty()) {
                                 Spacer(modifier = Modifier.height(10.dp))
-                                NearbyPostImages(threadImages)
+                                NearbyPostImages(threadImages, onImageClick = onOpenImage)
                             }
                         }
                     }
@@ -460,7 +458,7 @@ fun DiscussionThreadScreen(
                                 .padding(vertical = 32.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = AccentCyan)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 } else if (repliesList.isEmpty()) {
@@ -472,9 +470,9 @@ fun DiscussionThreadScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Outlined.Chat, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(48.dp))
+                                Icon(Icons.Outlined.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
                                 Spacer(modifier = Modifier.height(10.dp))
-                                Text("Be the first to reply!", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("Be the first to reply!", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
                                 Text("Ask a question or share your thoughts with people nearby.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }

@@ -146,9 +146,47 @@ object VideoTransformerManager {
         profile: VideoUploadProfile = VideoUploadProfile.GENERAL
     ): File? = withContext(Dispatchers.Main) {
         onProgress(0f)
+        // 1. Hardware WebM (VP9) encoder attempt
+        val webmFile = runExport(
+            context = context,
+            inputUri = inputUri,
+            startMs = startMs,
+            endMs = endMs,
+            videoMimeType = MimeTypes.VIDEO_VP9,
+            extension = "webm",
+            profile = profile,
+            onProgress = onProgress
+        )
+        if (webmFile != null && webmFile.exists() && webmFile.length() > 0) {
+            return@withContext webmFile
+        }
+
+        // 2. Fallback cleanly to H.264 / MP4 if hardware WebM encoding is unavailable on device
+        runExport(
+            context = context,
+            inputUri = inputUri,
+            startMs = startMs,
+            endMs = endMs,
+            videoMimeType = MimeTypes.VIDEO_H264,
+            extension = "mp4",
+            profile = profile,
+            onProgress = onProgress
+        )
+    }
+
+    private suspend fun runExport(
+        context: Context,
+        inputUri: Uri,
+        startMs: Long,
+        endMs: Long,
+        videoMimeType: String,
+        extension: String,
+        profile: VideoUploadProfile,
+        onProgress: (Float) -> Unit
+    ): File? = withContext(Dispatchers.Main) {
         val tempDir = File(context.cacheDir, "media_temp")
         if (!tempDir.exists()) tempDir.mkdirs()
-        val outputFile = File(tempDir, "compressed_${System.currentTimeMillis()}.mp4")
+        val outputFile = File(tempDir, "compressed_${System.currentTimeMillis()}.$extension")
         val clipping = MediaItem.ClippingConfiguration.Builder()
             .setStartPositionMs(startMs.coerceAtLeast(0L))
             .setEndPositionMs(endMs)
@@ -161,7 +199,6 @@ object VideoTransformerManager {
             .setEffects(Effects(emptyList(), listOf(Presentation.createForHeight(profile.height))))
             .build()
 
-        // Use Android hardware-accelerated encoders (Qualcomm, MediaTek, Exynos, Tensor)
         val encoder = DefaultEncoderFactory.Builder(context)
             .setRequestedVideoEncoderSettings(
                 VideoEncoderSettings.Builder().setBitrate(profile.videoBitrate).build()
@@ -171,7 +208,7 @@ object VideoTransformerManager {
 
         suspendCancellableCoroutine { continuation ->
             val transformer = Transformer.Builder(context)
-                .setVideoMimeType(MimeTypes.VIDEO_H264)
+                .setVideoMimeType(videoMimeType)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
                 .setEncoderFactory(encoder)
                 .addListener(object : Transformer.Listener {
@@ -185,7 +222,7 @@ object VideoTransformerManager {
                         exportResult: ExportResult,
                         exportException: ExportException
                     ) {
-                        Log.e("VideoTransformer", "Hardware export warning: ${exportException.message}")
+                        Log.e("VideoTransformer", "Hardware $videoMimeType export notice: ${exportException.message}")
                         outputFile.delete()
                         if (continuation.isActive) continuation.resume(null)
                     }
@@ -196,7 +233,7 @@ object VideoTransformerManager {
             try {
                 transformer.start(edited, outputFile.absolutePath)
             } catch (e: Exception) {
-                Log.e("VideoTransformer", "Failed to start hardware export", e)
+                Log.e("VideoTransformer", "Failed to start hardware $videoMimeType export", e)
                 outputFile.delete()
                 if (continuation.isActive) continuation.resume(null)
             }

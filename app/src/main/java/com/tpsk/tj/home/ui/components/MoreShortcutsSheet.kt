@@ -46,6 +46,7 @@ fun MoreShortcutsSheet(
 ) {
     val shortcuts = java.util.Arrays.asList(
         ShortcutItem("Friends", Icons.Outlined.AutoAwesome, Color(0xFFE91E63), Screen.Main.createRoute(tab = "mingle"), isEnabled = true),
+        ShortcutItem("Rewards", Icons.Default.EmojiEvents, Color(0xFFFFD700), Screen.Rewards.route, isEnabled = true),
         ShortcutItem("Wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFFA000), Screen.Wallet.route, isEnabled = true),
         ShortcutItem("News", Icons.Default.Newspaper, Color(0xFF4CAF50), Screen.News.route, isEnabled = true),
         ShortcutItem("Events", Icons.Default.Event, Color(0xFFFF5722), Screen.Events.route, isEnabled = true),

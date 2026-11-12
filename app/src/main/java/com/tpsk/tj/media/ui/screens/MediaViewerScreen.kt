@@ -1,8 +1,6 @@
 package com.tpsk.tj.media.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -12,9 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -158,27 +154,10 @@ fun MediaViewerScreen(
                 }
             }
         } else {
-            var scale by remember { mutableFloatStateOf(1f) }
-            var offset by remember { mutableStateOf(Offset.Zero) }
-            val state = rememberTransformableState { zoomChange: Float, offsetChange: Offset, _: Float ->
-                scale *= zoomChange
-                offset += offsetChange
-            }
-
-            val finalScale = if (scale < 1f) 1f else if (scale > 5f) 5f else scale
-
             AsyncImage(
                 model = url,
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(
-                        scaleX = finalScale,
-                        scaleY = finalScale,
-                        translationX = offset.x,
-                        translationY = offset.y
-                    )
-                    .transformable(state = state),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
         }

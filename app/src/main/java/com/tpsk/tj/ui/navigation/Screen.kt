@@ -66,6 +66,7 @@ sealed class Screen(val route: String) {
     object JobProfile : Screen("job_profile")
     object Applications : Screen("applications")
     object MyJobs : Screen("my_jobs")
+    object JobSearch : Screen("job_search")
     object DirectMessages : Screen("direct_messages")
     object DirectChat : Screen("direct_chat/{chatId}") {
         fun createRoute(chatId: String) = "direct_chat/$chatId"
@@ -92,6 +93,12 @@ sealed class Screen(val route: String) {
         fun createRoute(advertId: String) = "advert_detail/$advertId"
     }
     object Wallet : Screen("wallet")
+    object Rewards : Screen("rewards")
+    object MembershipChat : Screen("membership_chat/{id}?title={title}&isOwner={isOwner}") {
+        fun createRoute(id: String, title: String = "", isOwner: Boolean = false) =
+            "membership_chat/${android.net.Uri.encode(id)}?title=${android.net.Uri.encode(title)}&isOwner=$isOwner"
+    }
+    object CreateMembership : Screen("create_membership")
     object Stream : Screen("stream")
     object Ride : Screen("ride")
     object Drive : Screen("drive")
@@ -159,4 +166,5 @@ sealed class Screen(val route: String) {
     object Rent : Screen("rent")
     object Services : Screen("services")
     object Market : Screen("market")
+    object Stokvel : Screen("stokvel")
 }

@@ -36,6 +36,12 @@ fun NavGraphBuilder.jobsNavGraph(navController: NavHostController, mainViewModel
             onJobClick = { navController.navigate(Screen.JobDetail.createRoute(it)) }
         )
     }
+
+    composable(Screen.JobSearch.route) {
+        JobSearchScreen(
+            navController = navController
+        )
+    }
     
     composable(Screen.Applications.route) {
         val jobApplicationsViewModel: JobApplicationsViewModel = hiltViewModel()

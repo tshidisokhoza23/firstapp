@@ -15,7 +15,8 @@ interface JobRepository {
         salaryMin: Double? = null,
         postedWithinDays: Int? = null,
         query: String? = null,
-        category: String? = null
+        category: String? = null,
+        tab: String? = null
     ): Flow<Resource<List<Job>>>
     fun getJob(jobId: String): Flow<Resource<Job>>
     fun applyForJob(jobId: String, coverNote: String = ""): Flow<Resource<String>> // Returns conversation_id
@@ -46,7 +47,8 @@ interface JobRepository {
         jobType: String? = null,
         featuredOnly: Boolean = false,
         postedWithinDays: Int? = null,
-        category: String? = null
+        category: String? = null,
+        cursor: String? = null
     ): Flow<Resource<List<Job>>>
     suspend fun reportJob(jobId: String, reason: String, details: String = ""): Resource<Boolean>
     suspend fun anonymizeJobData(): Resource<Boolean>

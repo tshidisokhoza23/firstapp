@@ -113,6 +113,41 @@ fun AppNavigation(
             )
         }
 
+        composable(Screen.Rewards.route) {
+            val rewardViewModel: com.tpsk.tj.chat.ui.viewmodel.RewardViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            com.tpsk.tj.chat.ui.rewards.RewardsScreen(
+                viewModel = rewardViewModel,
+                topBarHeight = 0.dp
+            )
+        }
+
+        composable(
+            route = Screen.MembershipChat.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("id") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("title") { type = androidx.navigation.NavType.StringType; defaultValue = "Membership Group" },
+                androidx.navigation.navArgument("isOwner") { type = androidx.navigation.NavType.BoolType; defaultValue = false }
+            )
+        ) { backStackEntry ->
+            val title = backStackEntry.arguments?.getString("title") ?: "Membership Group"
+            val isOwner = backStackEntry.arguments?.getBoolean("isOwner") ?: false
+            com.tpsk.tj.ui.members.MembershipChatScreen(
+                title = title,
+                isOwner = isOwner,
+                onBack = { navController.popBackStack() },
+                onSendMessage = { text -> }
+            )
+        }
+
+        composable(Screen.CreateMembership.route) {
+            com.tpsk.tj.ui.members.CreateMembershipScreen(
+                onBack = { navController.popBackStack() },
+                onCreateSubmitted = { title, description, tier, maxMembers ->
+                    navController.popBackStack()
+                }
+            )
+        }
+
         composable(Screen.Stream.route) {
             com.tpsk.tj.music.ui.screens.MusicTabScreen(
                 navController = navController,
@@ -146,19 +181,31 @@ fun AppNavigation(
         }
 
         composable(Screen.Rent.route) {
-            com.tpsk.tj.boards.ui.RentScreen(onBack = { navController.popBackStack() }, onChat = { chatId ->
-                navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
-            })
+            com.tpsk.tj.boards.ui.RentScreen(
+                onBack = { navController.popBackStack() },
+                onChat = { chatId ->
+                    navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
+                },
+                onPostClick = {}
+            )
         }
         composable(Screen.Services.route) {
-            com.tpsk.tj.boards.ui.ServicesScreen(onBack = { navController.popBackStack() }, onChat = { chatId ->
-                navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
-            })
+            com.tpsk.tj.boards.ui.ServicesScreen(
+                onBack = { navController.popBackStack() },
+                onChat = { chatId ->
+                    navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
+                },
+                onPostClick = {}
+            )
         }
         composable(Screen.Market.route) {
-            com.tpsk.tj.boards.ui.MarketScreen(onBack = { navController.popBackStack() }, onChat = { chatId ->
-                navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
-            })
+            com.tpsk.tj.boards.ui.MarketScreen(
+                onBack = { navController.popBackStack() },
+                onChat = { chatId ->
+                    navController.navigate(Screen.Chat.createRoute(chatId, type = "direct"))
+                },
+                onPostClick = {}
+            )
         }
 
         composable(Screen.News.route) {
@@ -230,6 +277,9 @@ fun AppNavigation(
                 onBack = { navController.popBackStack() },
                 onOpenProfile = { userId ->
                     if (userId.isNotBlank()) navController.navigate(Screen.UserProfile.createRoute(userId))
+                },
+                onOpenImage = { url ->
+                    navController.navigate(Screen.MediaViewer.createRoute(url, "image", 0L))
                 }
             )
         }
@@ -259,6 +309,9 @@ fun AppNavigation(
                             authorId = post.userId
                         )
                     )
+                },
+                onOpenImage = { url ->
+                    navController.navigate(Screen.MediaViewer.createRoute(url, "image", 0L))
                 }
             )
         }

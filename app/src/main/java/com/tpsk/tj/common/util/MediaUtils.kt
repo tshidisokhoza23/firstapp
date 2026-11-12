@@ -14,12 +14,20 @@ import java.io.FileOutputStream
 import kotlin.math.max
 
 object MediaUtils {
-    fun compressImage(context: Context, uri: Uri, maxDimension: Int = 1920, quality: Int = 80): File? {
+    fun compressImage(context: Context, uri: Uri, maxDimension: Int = 1920, quality: Int = 88): File? {
+        val clampedDimension = maxDimension.coerceIn(1440, 1920)
+        val clampedQuality = quality.coerceIn(85, 90)
         return try {
-            val bitmap = decodeScaledBitmap(context, uri, maxDimension) ?: return copyImageFallback(context, uri)
-            val outFile = File(context.cacheDir, "mingle_${java.util.UUID.randomUUID()}.jpg")
+            val bitmap = decodeScaledBitmap(context, uri, clampedDimension) ?: return copyImageFallback(context, uri)
+            val outFile = File(context.cacheDir, "compressed_${java.util.UUID.randomUUID()}.webp")
             FileOutputStream(outFile).use { outStream ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outStream)
+                val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Bitmap.CompressFormat.WEBP_LOSSY
+                } else {
+                    @Suppress("DEPRECATION")
+                    Bitmap.CompressFormat.WEBP
+                }
+                bitmap.compress(format, clampedQuality, outStream)
                 outStream.flush()
             }
             bitmap.recycle()
@@ -102,7 +110,7 @@ object MediaUtils {
 
     private fun copyImageFallback(context: Context, uri: Uri): File? {
         return try {
-            val fallbackFile = File(context.cacheDir, "fallback_${java.util.UUID.randomUUID()}.jpg")
+            val fallbackFile = File(context.cacheDir, "fallback_${java.util.UUID.randomUUID()}.webp")
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 FileOutputStream(fallbackFile).use { outputStream -> inputStream.copyTo(outputStream) }
             }

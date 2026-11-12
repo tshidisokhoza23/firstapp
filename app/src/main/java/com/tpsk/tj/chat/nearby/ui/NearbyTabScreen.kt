@@ -344,6 +344,9 @@ fun NearbyTabScreen(
                             currentUserAvatarUrl = currentUser?.avatarUrl,
                             currentUserId = authorId,
                             onAuthorClick = { },
+                            onMediaClick = { url ->
+                                navController.navigate(Screen.MediaViewer.createRoute(url, "image", 0L))
+                            },
                             onLike = { nearbyViewModel.toggleLike(post.id) },
                             onReply = {
                                 navController.navigate(
@@ -691,6 +694,7 @@ fun NearbyPostCard(
     currentUserAvatarUrl: String?,
     currentUserId: String,
     onAuthorClick: () -> Unit = {},
+    onMediaClick: (String) -> Unit = {},
     onLike: () -> Unit,
     onReply: () -> Unit,
     onRequestChat: () -> Unit,
@@ -821,7 +825,10 @@ fun NearbyPostCard(
 
             if (post.imageUrls.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                NearbyPostImages(post.imageUrls)
+                NearbyPostImages(
+                    imageUrls = post.imageUrls,
+                    onImageClick = onMediaClick
+                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -922,16 +929,21 @@ fun NearbyPostCard(
 }
 
 @Composable
-fun NearbyPostImages(imageUrls: List<String>) {
+fun NearbyPostImages(
+    imageUrls: List<String>,
+    onImageClick: (String) -> Unit = {}
+) {
     if (imageUrls.isEmpty()) return
+    val shape = RoundedCornerShape(12.dp)
     if (imageUrls.size == 1) {
         val url = com.tpsk.tj.common.util.MediaUtils.formatUrl(imageUrls[0]) ?: imageUrls[0]
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 200.dp, max = 480.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color.Black.copy(alpha = 0.2f)),
+                .heightIn(max = 280.dp)
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                .clickable { onImageClick(url) },
             contentAlignment = Alignment.Center
         ) {
             AsyncImage(
@@ -939,14 +951,15 @@ fun NearbyPostImages(imageUrls: List<String>) {
                 contentDescription = "Post photo",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 200.dp, max = 480.dp),
-                contentScale = ContentScale.Fit
+                    .heightIn(max = 280.dp),
+                contentScale = ContentScale.Crop
             )
         }
     } else {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = 280.dp)
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -956,15 +969,16 @@ fun NearbyPostImages(imageUrls: List<String>) {
                     modifier = Modifier
                         .height(260.dp)
                         .width(220.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Black.copy(alpha = 0.2f)),
+                        .clip(shape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                        .clickable { onImageClick(url) },
                     contentAlignment = Alignment.Center
                 ) {
                     AsyncImage(
                         model = url,
                         contentDescription = "Post photo",
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Crop
                     )
                 }
             }

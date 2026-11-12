@@ -113,14 +113,17 @@ object ImageExportEngine {
                 croppedBitmap.recycle()
             }
 
-            // 6. Write compressed WebP / JPEG to disk
+            // 6. Write compressed WebP to disk
             outputFile.parentFile?.mkdirs()
             FileOutputStream(outputFile).use { out ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    finalBitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, out)
+                val clampedQuality = quality.coerceIn(85, 90)
+                val format = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Bitmap.CompressFormat.WEBP_LOSSY
                 } else {
-                    finalBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+                    @Suppress("DEPRECATION")
+                    Bitmap.CompressFormat.WEBP
                 }
+                finalBitmap.compress(format, clampedQuality, out)
             }
             finalBitmap.recycle()
             true

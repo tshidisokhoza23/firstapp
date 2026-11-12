@@ -20,8 +20,20 @@ class JobViewModel @Inject constructor(
 
     private val _jobs = MutableStateFlow<Resource<List<Job>>>(Resource.Loading())
     val jobs: StateFlow<Resource<List<Job>>> = _jobs.asStateFlow()
-    private val _feedChip = MutableStateFlow("All")
-    val feedChip: StateFlow<String> = _feedChip.asStateFlow()
+
+    private val _activeTab = MutableStateFlow("All")
+    val activeTab: StateFlow<String> = _activeTab.asStateFlow()
+    val feedChip: StateFlow<String> = _activeTab.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<Resource<List<Job>>>(Resource.Loading())
+    val searchResults: StateFlow<Resource<List<Job>>> = _searchResults.asStateFlow()
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchCategory = MutableStateFlow("All")
+    val searchCategory: StateFlow<String> = _searchCategory.asStateFlow()
+
     private val _location = MutableStateFlow("")
     val location: StateFlow<String> = _location.asStateFlow()
     private val _salaryMin = MutableStateFlow("")
@@ -43,11 +55,16 @@ class JobViewModel @Inject constructor(
     init {
         fetchJobs()
         fetchJobApplications()
+        performSearch()
+    }
+
+    fun selectFeedTab(tab: String) {
+        _activeTab.value = tab
+        fetchJobs()
     }
 
     fun selectFeedChip(chip: String) {
-        _feedChip.value = chip
-        fetchJobs()
+        selectFeedTab(chip)
     }
 
     fun setLocation(value: String) {
@@ -66,28 +83,45 @@ class JobViewModel @Inject constructor(
     }
 
     fun fetchJobs() {
-        val chip = _feedChip.value
-        val category = if (chip == "All") null else chip
+        val tabName = _activeTab.value
+        val tabKey = when (tabName) {
+            "For You" -> "for_you"
+            "Recent" -> "recent"
+            "Saved" -> "saved"
+            else -> "all"
+        }
         val salary = _salaryMin.value.toDoubleOrNull()
         viewModelScope.launch {
             repository.getJobs(
                 location = _location.value.trim().ifBlank { null },
                 salaryMin = salary,
                 postedWithinDays = _postedWithinDays.value.takeIf { it > 0 },
-                category = category
+                tab = tabKey
             ).collect { _jobs.value = it }
         }
     }
 
-    fun search(query: String) {
-        val category = _feedChip.value.takeUnless { it == "All" }
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+        performSearch(query, _searchCategory.value)
+    }
+
+    fun onSearchCategoryChanged(category: String) {
+        _searchCategory.value = category
+        performSearch(_searchQuery.value, category)
+    }
+
+    fun performSearch(query: String = _searchQuery.value, category: String = _searchCategory.value) {
+        val catParam = if (category == "All") null else category
         viewModelScope.launch {
-            if (query.isBlank()) {
-                fetchJobs()
-            } else {
-                repository.searchJobs(query, category = category).collect { _jobs.value = it }
+            repository.searchJobs(query = query.trim(), category = catParam).collect {
+                _searchResults.value = it
             }
         }
+    }
+
+    fun search(query: String) {
+        onSearchQueryChanged(query)
     }
 
     fun fetchMyJobs() {
@@ -150,6 +184,7 @@ class JobViewModel @Inject constructor(
         viewModelScope.launch {
             repository.setJobSaved(job.id, !job.isSaved)
             fetchJobs()
+            performSearch()
         }
     }
 
